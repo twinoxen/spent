@@ -6,7 +6,6 @@
           <div class="flex items-center justify-between h-16">
             <NuxtLink to="/" class="flex items-center gap-2">
               <span class="text-xl font-bold text-primary-600 dark:text-primary-400">Spent</span>
-              <span class="text-sm text-gray-400 dark:text-gray-500 hidden min-[850px]:inline">See where your money is going</span>
             </NuxtLink>
 
             <!-- Desktop nav -->
@@ -108,6 +107,12 @@
       <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <NuxtPage />
       </main>
+
+      <footer class="border-t border-gray-200 dark:border-gray-800 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-center">
+          <p class="text-sm text-gray-400 dark:text-gray-500">Spent &mdash; See where your money is going</p>
+        </div>
+      </footer>
     </div>
   </UApp>
 </template>
