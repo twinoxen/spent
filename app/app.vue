@@ -6,10 +6,11 @@
           <div class="flex items-center justify-between h-16">
             <NuxtLink to="/" class="flex items-center gap-2">
               <span class="text-xl font-bold text-primary-600 dark:text-primary-400">Spent</span>
-              <span class="text-sm text-gray-400 dark:text-gray-500 hidden sm:inline">See where your money is going</span>
+              <span class="text-sm text-gray-400 dark:text-gray-500 hidden min-[850px]:inline">See where your money is going</span>
             </NuxtLink>
 
-            <div class="flex items-center gap-1">
+            <!-- Desktop nav -->
+            <div class="hidden sm:flex items-center gap-1">
               <template v-for="item in navItems" :key="item.to">
                 <div class="relative">
                   <UButton
@@ -41,8 +42,67 @@
                 />
               </div>
             </div>
+
+            <!-- Mobile: sign-out + hamburger -->
+            <div class="flex sm:hidden items-center gap-1">
+              <UButton
+                icon="i-heroicons-arrow-right-on-rectangle"
+                variant="ghost"
+                color="neutral"
+                size="sm"
+                title="Sign out"
+                @click="logout"
+              />
+              <UButton
+                :icon="mobileMenuOpen ? 'i-heroicons-x-mark' : 'i-heroicons-bars-3'"
+                variant="ghost"
+                color="neutral"
+                size="sm"
+                aria-label="Toggle menu"
+                @click="mobileMenuOpen = !mobileMenuOpen"
+              />
+            </div>
           </div>
         </div>
+
+        <!-- Mobile menu -->
+        <Transition
+          enter-active-class="transition duration-150 ease-out"
+          enter-from-class="opacity-0 -translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition duration-100 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-1"
+        >
+          <div
+            v-if="mobileMenuOpen"
+            class="sm:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 flex flex-col gap-1"
+          >
+            <template v-for="item in navItems" :key="item.to">
+              <div class="relative">
+                <UButton
+                  :to="item.to"
+                  :label="item.label"
+                  :icon="item.icon"
+                  :variant="isActive(item.to) ? 'soft' : 'ghost'"
+                  color="primary"
+                  size="sm"
+                  class="w-full justify-start"
+                  @click="mobileMenuOpen = false"
+                />
+                <span
+                  v-if="item.to === '/review' && uncategorizedCount > 0"
+                  class="absolute top-1 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center leading-none pointer-events-none"
+                >
+                  {{ uncategorizedCount > 99 ? '99+' : uncategorizedCount }}
+                </span>
+              </div>
+            </template>
+            <div class="mt-1 pt-2 border-t border-gray-100 dark:border-gray-800">
+              <p class="text-xs text-gray-400 dark:text-gray-500 px-2 pb-1">{{ user?.email }}</p>
+            </div>
+          </div>
+        </Transition>
       </nav>
 
       <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -55,6 +115,8 @@
 <script setup lang="ts">
 const route = useRoute()
 const { user, logout } = useAuth()
+
+const mobileMenuOpen = ref(false)
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: 'i-heroicons-chart-pie' },
@@ -69,6 +131,9 @@ function isActive(path: string): boolean {
   if (path === '/') return route.path === '/'
   return route.path.startsWith(path)
 }
+
+// Close mobile menu on route change
+watch(() => route.path, () => { mobileMenuOpen.value = false })
 
 const uncategorizedCount = ref(0)
 
