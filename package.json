@@ -10,7 +10,9 @@
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:reset": "rm -f ./data/finance.db ./data/finance.db-shm ./data/finance.db-wal && drizzle-kit migrate",
+    "dev:fresh": "npm run db:reset && nuxt dev"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
