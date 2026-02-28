@@ -6,6 +6,7 @@
           <div class="flex items-center justify-between h-16">
             <NuxtLink to="/" class="flex items-center gap-2">
               <span class="text-xl font-bold text-primary-600 dark:text-primary-400">Spent</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 leading-none">Beta</span>
             </NuxtLink>
 
             <!-- Desktop nav -->
@@ -109,8 +110,12 @@
       </main>
 
       <footer class="border-t border-gray-200 dark:border-gray-800 mt-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-center">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col items-center gap-2 text-center">
           <p class="text-sm text-gray-400 dark:text-gray-500">Spent &mdash; See where your money is going</p>
+          <p class="text-xs text-amber-600 dark:text-amber-500 max-w-md">
+            <span class="font-semibold">This app is in beta.</span>
+            Features are actively changing and policies may shift without notice. Use it to explore, but don't rely on it for critical financial decisions yet.
+          </p>
         </div>
       </footer>
     </div>
