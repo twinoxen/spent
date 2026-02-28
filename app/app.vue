@@ -110,12 +110,15 @@
       </main>
 
       <footer class="border-t border-gray-200 dark:border-gray-800 mt-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col items-center gap-2 text-center">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col items-center gap-2 text-center">
           <p class="text-sm text-gray-400 dark:text-gray-500">Spent &mdash; See where your money is going</p>
-          <p class="text-xs text-amber-600 dark:text-amber-500 max-w-md">
-            <span class="font-semibold">This app is in beta.</span>
-            Features are actively changing and policies may shift without notice. Use it to explore, but don't rely on it for critical financial decisions yet.
-          </p>
+          <div class="flex items-center gap-3">
+            <NuxtLink to="/privacy" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">Privacy Policy</NuxtLink>
+            <span class="text-gray-300 dark:text-gray-700">&bull;</span>
+            <NuxtLink to="/terms" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">Terms of Use</NuxtLink>
+            <span class="text-gray-300 dark:text-gray-700">&bull;</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500">&copy; {{ currentYear }} Twin Oxen LLC</span>
+          </div>
         </div>
       </footer>
     </div>
@@ -125,6 +128,8 @@
 <script setup lang="ts">
 const route = useRoute()
 const { user, logout } = useAuth()
+
+const currentYear = new Date().getFullYear()
 
 const mobileMenuOpen = ref(false)
 
