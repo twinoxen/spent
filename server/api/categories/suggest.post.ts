@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 503, message: 'LLM categorization is not configured. Set OPENAI_API_KEY to enable this feature.' })
   }
 
-  const db = getDb()
+  const db = await getDb()
 
   // Scope to user's categories
   const [uncategorizedCategory] = await db

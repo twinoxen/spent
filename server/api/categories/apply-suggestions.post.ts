@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'No approved suggestions provided.' })
   }
 
-  const db = getDb()
+  const db = await getDb()
   const config = useRuntimeConfig()
 
   // 1. Create each approved category and its merchant rules (scoped to user)

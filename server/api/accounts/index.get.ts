@@ -3,7 +3,7 @@ import { accounts, transactions } from '../../db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
 
   const results = await db

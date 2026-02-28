@@ -9,7 +9,7 @@ interface UpdateTransactionBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const id = Number(event.context.params?.id)
 

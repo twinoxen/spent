@@ -3,7 +3,7 @@ import { stagingTransactions, importSessions, categories, accounts } from '../..
 import { and, eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const sessionId = Number(event.context.params?.sessionId)
 

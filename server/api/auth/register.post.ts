@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
   const normalizedEmail = email.toLowerCase().trim()
 
-  const db = getDb()
+  const db = await getDb()
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail))
   if (existing) {
     throw createError({ statusCode: 409, message: 'An account with this email already exists' })

@@ -17,7 +17,7 @@ interface ImportResult {
 }
 
 export default defineEventHandler(async (event): Promise<ImportResult> => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const config = useRuntimeConfig()
 

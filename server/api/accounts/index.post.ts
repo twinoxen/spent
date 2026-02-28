@@ -2,7 +2,7 @@ import { getDb } from '../../db'
 import { accounts } from '../../db/schema'
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const body = await readBody(event)
 

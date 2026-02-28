@@ -8,7 +8,7 @@ interface CreateMerchantRuleBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const body = await readBody<CreateMerchantRuleBody>(event)
 
