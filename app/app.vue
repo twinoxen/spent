@@ -6,6 +6,7 @@
           <div class="flex items-center justify-between h-16">
             <NuxtLink to="/" class="flex items-center gap-2">
               <span class="text-xl font-bold text-primary-600 dark:text-primary-400">Spent</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 leading-none">Beta</span>
             </NuxtLink>
 
             <!-- Desktop nav -->
