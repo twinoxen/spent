@@ -1,9 +1,10 @@
 import { getDb } from '../../../db'
 import { stagingTransactions, importSessions, categories, accounts } from '../../../db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const sessionId = Number(event.context.params?.sessionId)
 
   if (!sessionId || isNaN(sessionId)) {
@@ -25,6 +26,17 @@ export default defineEventHandler(async (event) => {
 
   if (!session) {
     throw createError({ statusCode: 404, message: 'Import session not found' })
+  }
+
+  // Verify the session's account belongs to this user
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, session.accountId), eq(accounts.userId, userId)))
+    .limit(1)
+
+  if (!account) {
+    throw createError({ statusCode: 403, message: 'Access denied' })
   }
 
   const rows = await db
@@ -53,6 +65,7 @@ export default defineEventHandler(async (event) => {
   const allCategories = await db
     .select({ id: categories.id, name: categories.name })
     .from(categories)
+    .where(eq(categories.userId, userId))
     .orderBy(categories.name)
 
   return {

@@ -1,6 +1,6 @@
 import { getDb } from '../db'
 import { transactions, stagingTransactions, importSessions, categories, accounts } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { generateFingerprint } from '../utils/fingerprint'
 import { autoCategorizeMerchant } from '../utils/categorizer'
 import { detectStrategy } from '../utils/import-strategies'
@@ -18,6 +18,7 @@ interface ImportResult {
 
 export default defineEventHandler(async (event): Promise<ImportResult> => {
   const db = getDb()
+  const userId = event.context.user.id
   const config = useRuntimeConfig()
 
   try {
@@ -48,10 +49,11 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
       throw createError({ statusCode: 400, message: 'File size exceeds the 10 MB limit.' })
     }
 
+    // Verify account exists and belongs to this user
     const [account] = await db
       .select({ id: accounts.id, institution: accounts.institution })
       .from(accounts)
-      .where(eq(accounts.id, accountId))
+      .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId)))
       .limit(1)
 
     if (!account) {
@@ -79,6 +81,7 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
     const allCategories = await db
       .select({ id: categories.id, name: categories.name })
       .from(categories)
+      .where(eq(categories.userId, userId))
 
     const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
     const llmCache = new Map<string, number | null>()
@@ -101,21 +104,21 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
       return result
     }
 
-    const [session] = await db.insert(importSessions).values({
+    const insertedSessions = await db.insert(importSessions).values({
       accountId,
       filename,
       rowCount: records.length,
       sourceType,
       status: 'pending_review',
     }).returning()
+    const session = insertedSessions[0]!
+
 
     let stagedCount = 0
     let duplicateCount = 0
     const errors: string[] = []
 
-    for (let i = 0; i < records.length; i++) {
-      const record = records[i]
-
+    for (const [i, record] of records.entries()) {
       try {
         const fingerprint = generateFingerprint(
           record.transactionDate,
@@ -140,11 +143,12 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
           record.merchantName,
           record.description,
           record.sourceCategory,
-          (merchantName) => llmFallback(merchantName, record)
+          (merchantName) => llmFallback(merchantName, record),
+          userId
         )
 
         await db.insert(stagingTransactions).values({
-          importSessionId: session.id,
+          importSessionId: session!.id,
           transactionDate: record.transactionDate,
           clearingDate: record.clearingDate,
           description: record.description,

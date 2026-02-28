@@ -1,11 +1,12 @@
 import { getDb } from '../../db'
 import { transactions, merchants, categories, accounts } from '../../db/schema'
-import { eq, desc, and, gte, lte, like, or, sql, isNull } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, like, or, sql, isNull, inArray } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const query = getQuery(event)
-  
+
   // Parse filters
   const accountId = query.accountId ? Number(query.accountId) : undefined
   const categoryId = query.categoryId ? Number(query.categoryId) : undefined
@@ -19,43 +20,48 @@ export default defineEventHandler(async (event) => {
   const uncategorizedOnly = query.uncategorizedOnly === 'true'
   const limit = query.limit ? Number(query.limit) : 100
   const offset = query.offset ? Number(query.offset) : 0
-  
-  // Build where conditions
-  const conditions = []
+
+  // Subquery: IDs of accounts that belong to this user
+  const userAccountIds = db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
+
+  // Build where conditions — always scope to user's accounts
+  const conditions = [inArray(transactions.accountId, userAccountIds)]
 
   if (accountId) {
     conditions.push(eq(transactions.accountId, accountId))
   }
-  
+
   if (categoryId) {
     conditions.push(eq(transactions.categoryId, categoryId))
   }
-  
+
   if (uncategorizedOnly) {
     conditions.push(isNull(transactions.categoryId))
   }
-  
+
   if (merchantId) {
     conditions.push(eq(transactions.merchantId, merchantId))
   }
-  
+
   if (purchasedBy) {
     conditions.push(eq(transactions.purchasedBy, purchasedBy))
   }
-  
+
   if (type) {
     conditions.push(eq(transactions.type, type))
   }
-  
+
   if (search) {
-    conditions.push(
-      or(
-        like(transactions.description, `%${search}%`),
-        like(transactions.notes, `%${search}%`)
-      )
+    const searchClause = or(
+      like(transactions.description, `%${search}%`),
+      like(transactions.notes, `%${search}%`)
     )
+    if (searchClause) conditions.push(searchClause)
   }
-  
+
   if (date) {
     // Convert YYYY-MM-DD → MM/DD/YYYY to match stored format
     const [y, m, d] = date.split('-')
@@ -65,13 +71,13 @@ export default defineEventHandler(async (event) => {
   if (startDate) {
     conditions.push(gte(transactions.transactionDate, startDate))
   }
-  
+
   if (endDate) {
     conditions.push(lte(transactions.transactionDate, endDate))
   }
-  
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined
-  
+
+  const whereClause = and(...conditions)
+
   // Get transactions with merchant, category, and account info
   const results = await db
     .select({
@@ -110,15 +116,15 @@ export default defineEventHandler(async (event) => {
     .orderBy(desc(transactions.transactionDate), desc(transactions.id))
     .limit(limit)
     .offset(offset)
-  
+
   // Get total count
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
     .from(transactions)
     .where(whereClause)
-  
+
   const total = countResult[0]?.count || 0
-  
+
   return {
     transactions: results,
     total,

@@ -1,13 +1,19 @@
 import { getDb } from '../../db'
 import { merchantRules, categories } from '../../db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { and, eq, desc } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const query = getQuery(event)
-  
+
   const categoryId = query.categoryId ? Number(query.categoryId) : undefined
-  
+
+  const conditions = [eq(merchantRules.userId, userId)]
+  if (categoryId) {
+    conditions.push(eq(merchantRules.categoryId, categoryId))
+  }
+
   const results = await db
     .select({
       id: merchantRules.id,
@@ -22,8 +28,8 @@ export default defineEventHandler(async (event) => {
     })
     .from(merchantRules)
     .leftJoin(categories, eq(merchantRules.categoryId, categories.id))
-    .where(categoryId ? eq(merchantRules.categoryId, categoryId) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(merchantRules.priority), merchantRules.pattern)
-  
+
   return results
 })

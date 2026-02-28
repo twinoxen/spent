@@ -1,4 +1,5 @@
-# Finance Visualizer
+# Spent
+### See where your money is going
 
 A local-first finance visualization app built with Nuxt 4, SQLite, and Drizzle ORM. Import your Apple Card transaction CSVs, automatically categorize spending, and visualize where your money goes.
 

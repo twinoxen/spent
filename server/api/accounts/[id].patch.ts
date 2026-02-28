@@ -1,9 +1,10 @@
 import { getDb } from '../../db'
 import { accounts } from '../../db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const id = parseInt(getRouterParam(event, 'id')!)
   const body = await readBody(event)
 
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const [updated] = await db
     .update(accounts)
     .set(updates)
-    .where(eq(accounts.id, id))
+    .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
     .returning()
 
   if (!updated) {

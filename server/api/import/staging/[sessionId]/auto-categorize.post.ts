@@ -1,11 +1,12 @@
 import { getDb } from '../../../../db'
-import { stagingTransactions, categories, importSessions } from '../../../../db/schema'
-import { eq, isNull, or, and } from 'drizzle-orm'
+import { stagingTransactions, categories, importSessions, accounts } from '../../../../db/schema'
+import { and, eq, isNull, or } from 'drizzle-orm'
 import { autoCategorizeMerchant } from '../../../../utils/categorizer'
 import { createCategorizerStrategy, type CategorizationInput } from '../../../../utils/llmCategorizer'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const config = useRuntimeConfig()
   const sessionId = Number(event.context.params?.sessionId)
 
@@ -14,7 +15,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const [session] = await db
-    .select({ id: importSessions.id })
+    .select({ id: importSessions.id, accountId: importSessions.accountId })
     .from(importSessions)
     .where(eq(importSessions.id, sessionId))
     .limit(1)
@@ -23,10 +24,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Import session not found' })
   }
 
+  // Verify the session's account belongs to this user
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, session.accountId), eq(accounts.userId, userId)))
+    .limit(1)
+
+  if (!account) {
+    throw createError({ statusCode: 403, message: 'Access denied' })
+  }
+
   const [uncategorizedCategory] = await db
     .select({ id: categories.id })
     .from(categories)
-    .where(eq(categories.name, 'Uncategorized'))
+    .where(and(eq(categories.name, 'Uncategorized'), eq(categories.userId, userId)))
     .limit(1)
 
   const uncategorizedId = uncategorizedCategory?.id ?? null
@@ -54,6 +66,7 @@ export default defineEventHandler(async (event) => {
   const allCategories = await db
     .select({ id: categories.id, name: categories.name })
     .from(categories)
+    .where(eq(categories.userId, userId))
 
   const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
   const llmCache = new Map<string, number | null>()
@@ -83,7 +96,8 @@ export default defineEventHandler(async (event) => {
       row.merchantName,
       row.description,
       row.sourceCategory ?? undefined,
-      (name) => llmFallback(name, row)
+      (name) => llmFallback(name, row),
+      userId
     )
 
     if (categoryId !== null && categoryId !== uncategorizedId) {

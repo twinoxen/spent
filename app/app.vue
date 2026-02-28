@@ -4,8 +4,9 @@
       <nav class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-16">
-            <NuxtLink to="/" class="text-xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
-              💰 Finance Visualizer
+            <NuxtLink to="/" class="flex items-center gap-2">
+              <span class="text-xl font-bold text-primary-600 dark:text-primary-400">Spent</span>
+              <span class="text-sm text-gray-400 dark:text-gray-500 hidden sm:inline">See where your money is going</span>
             </NuxtLink>
 
             <div class="flex items-center gap-1">
@@ -27,6 +28,18 @@
                   </span>
                 </div>
               </template>
+
+              <div class="ml-2 pl-2 border-l border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                <span class="text-sm text-gray-500 dark:text-gray-400 hidden md:inline">{{ user?.email }}</span>
+                <UButton
+                  icon="i-heroicons-arrow-right-on-rectangle"
+                  variant="ghost"
+                  color="neutral"
+                  size="sm"
+                  title="Sign out"
+                  @click="logout"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -41,6 +54,7 @@
 
 <script setup lang="ts">
 const route = useRoute()
+const { user, logout } = useAuth()
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: 'i-heroicons-chart-pie' },

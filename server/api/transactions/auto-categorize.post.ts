@@ -1,26 +1,32 @@
 import { getDb } from '../../db'
-import { transactions, merchants, categories } from '../../db/schema'
-import { eq, isNull, or } from 'drizzle-orm'
+import { transactions, merchants, categories, accounts } from '../../db/schema'
+import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { autoCategorizeMerchant } from '../../utils/categorizer'
 import { createCategorizerStrategy, type CategorizationInput } from '../../utils/llmCategorizer'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const config = useRuntimeConfig()
 
-  // Find the "Uncategorized" category id
+  // Find the user's "Uncategorized" category
   const [uncategorizedCategory] = await db
     .select({ id: categories.id })
     .from(categories)
-    .where(eq(categories.name, 'Uncategorized'))
+    .where(and(eq(categories.name, 'Uncategorized'), eq(categories.userId, userId)))
     .limit(1)
 
   const uncategorizedId = uncategorizedCategory?.id ?? null
 
-  // Fetch all transactions that are uncategorized (null or the Uncategorized catch-all)
-  const whereClause = uncategorizedId
+  const categoryWhereClause = uncategorizedId
     ? or(isNull(transactions.categoryId), eq(transactions.categoryId, uncategorizedId))
     : isNull(transactions.categoryId)
+
+  // Scope to user's accounts
+  const userAccountIds = db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
 
   const uncategorized = await db
     .select({
@@ -31,23 +37,25 @@ export default defineEventHandler(async (event) => {
       merchantId: transactions.merchantId,
     })
     .from(transactions)
-    .where(whereClause)
+    .where(and(inArray(transactions.accountId, userAccountIds), categoryWhereClause))
 
   if (uncategorized.length === 0) {
     return { categorized: 0, total: 0 }
   }
 
-  // Fetch all merchants for lookup
+  // Fetch user's merchants for lookup
   const allMerchants = await db
     .select({ id: merchants.id, normalizedName: merchants.normalizedName })
     .from(merchants)
+    .where(eq(merchants.userId, userId))
 
   const merchantMap = new Map(allMerchants.map(m => [m.id, m.normalizedName]))
 
-  // Fetch all categories once for LLM categorization
+  // Fetch user's categories for LLM categorization
   const allCategories = await db
     .select({ id: categories.id, name: categories.name })
     .from(categories)
+    .where(eq(categories.userId, userId))
 
   const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
   const llmCache = new Map<string, number | null>()
@@ -78,10 +86,10 @@ export default defineEventHandler(async (event) => {
       merchantName,
       tx.description,
       undefined,
-      (name) => llmFallback(name, tx)
+      (name) => llmFallback(name, tx),
+      userId
     )
 
-    // Only update if we got a real category (not null and not the uncategorized catch-all)
     if (categoryId !== null && categoryId !== uncategorizedId) {
       await db
         .update(transactions)

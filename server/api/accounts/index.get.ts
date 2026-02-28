@@ -2,8 +2,9 @@ import { getDb } from '../../db'
 import { accounts, transactions } from '../../db/schema'
 import { eq, sql } from 'drizzle-orm'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
 
   const results = await db
     .select({
@@ -18,6 +19,7 @@ export default defineEventHandler(async () => {
     })
     .from(accounts)
     .leftJoin(transactions, eq(transactions.accountId, accounts.id))
+    .where(eq(accounts.userId, userId))
     .groupBy(accounts.id)
     .orderBy(accounts.name)
 

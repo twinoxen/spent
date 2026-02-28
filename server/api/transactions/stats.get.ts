@@ -1,6 +1,6 @@
 import { getDb } from '../../db'
-import { transactions, categories, merchants } from '../../db/schema'
-import { eq, sql, and, desc, inArray } from 'drizzle-orm'
+import { transactions, categories, merchants, accounts } from '../../db/schema'
+import { and, eq, inArray, sql, desc, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
 
 // Stored dates are MM/DD/YYYY — convert to YYYY-MM-DD for correct ISO string comparison
@@ -9,8 +9,9 @@ const isoDate = (col: any) =>
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const query = getQuery(event)
-  
+
   const startDate = query.startDate as string | undefined
   const endDate = query.endDate as string | undefined
   const purchasedBy = query.purchasedBy as string | undefined
@@ -21,13 +22,19 @@ export default defineEventHandler(async (event) => {
     ? accountIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
     : query.accountId ? [parseInt(query.accountId as string)] : []
 
-  // Build where conditions using ISO-converted date for correct string ordering
-  const conditions = []
-  
+  // Subquery: IDs of accounts belonging to this user
+  const userAccountIds = db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
+
+  // Build where conditions — always scope to user's accounts
+  const conditions: SQL[] = [inArray(transactions.accountId, userAccountIds)]
+
   if (startDate) {
     conditions.push(sql`${isoDate(transactions.transactionDate)} >= ${startDate}`)
   }
-  
+
   if (endDate) {
     conditions.push(sql`${isoDate(transactions.transactionDate)} <= ${endDate}`)
   }
@@ -36,29 +43,22 @@ export default defineEventHandler(async (event) => {
     conditions.push(eq(transactions.purchasedBy, purchasedBy))
   }
 
-  if (accountIds.length === 1) {
+  if (accountIds.length === 1 && accountIds[0] !== undefined) {
     conditions.push(eq(transactions.accountId, accountIds[0]))
   } else if (accountIds.length > 1) {
     conditions.push(inArray(transactions.accountId, accountIds))
   }
-  
+
   // Total spend (excluding payments)
   const totalSpendResult = await db
     .select({
       total: sql<number>`sum(${transactions.amount})`,
     })
     .from(transactions)
-    .where(
-      conditions.length > 0
-        ? and(
-            ...conditions,
-            sql`${transactions.type} != 'Payment'`
-          )
-        : sql`${transactions.type} != 'Payment'`
-    )
-  
+    .where(and(...conditions, sql`${transactions.type} != 'Payment'`))
+
   const totalSpend = totalSpendResult[0]?.total || 0
-  
+
   // Spend by category — self-join to get parent info so the client can build a hierarchy
   const parentCats = alias(categories, 'parent_cats')
   const spendByCategory = await db
@@ -76,22 +76,15 @@ export default defineEventHandler(async (event) => {
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    .leftJoin(parentCats, eq(categories.parentId, parentCats.id))
-    .where(
-      conditions.length > 0
-        ? and(
-            ...conditions,
-            sql`${transactions.type} != 'Payment'`
-          )
-        : sql`${transactions.type} != 'Payment'`
-    )
+    .leftJoin(parentCats as any, eq(categories.parentId, parentCats.id))
+    .where(and(...conditions, sql`${transactions.type} != 'Payment'`))
     .groupBy(
       transactions.categoryId,
       categories.name, categories.color, categories.icon, categories.parentId,
       parentCats.name, parentCats.color, parentCats.icon,
     )
     .orderBy(desc(sql`sum(${transactions.amount})`))
-  
+
   // Top merchants — optionally filtered to a specific category (and its children)
   const merchantConditions = [...conditions]
   if (categoryId !== undefined) {
@@ -109,18 +102,11 @@ export default defineEventHandler(async (event) => {
     })
     .from(transactions)
     .leftJoin(merchants, eq(transactions.merchantId, merchants.id))
-    .where(
-      merchantConditions.length > 0
-        ? and(
-            ...merchantConditions,
-            sql`${transactions.type} != 'Payment'`
-          )
-        : sql`${transactions.type} != 'Payment'`
-    )
+    .where(and(...merchantConditions, sql`${transactions.type} != 'Payment'`))
     .groupBy(transactions.merchantId, merchants.normalizedName)
     .orderBy(desc(sql`sum(${transactions.amount})`))
     .limit(10)
-  
+
   // Spend by purchaser
   const spendByPurchaser = await db
     .select({
@@ -129,17 +115,10 @@ export default defineEventHandler(async (event) => {
       count: sql<number>`count(*)`,
     })
     .from(transactions)
-    .where(
-      conditions.length > 0
-        ? and(
-            ...conditions,
-            sql`${transactions.type} != 'Payment'`
-          )
-        : sql`${transactions.type} != 'Payment'`
-    )
+    .where(and(...conditions, sql`${transactions.type} != 'Payment'`))
     .groupBy(transactions.purchasedBy)
     .orderBy(desc(sql`sum(${transactions.amount})`))
-  
+
   // Spend over time (by month) — derive YYYY-MM from MM/DD/YYYY stored format
   const spendOverTime = await db
     .select({
@@ -148,17 +127,10 @@ export default defineEventHandler(async (event) => {
       count: sql<number>`count(*)`,
     })
     .from(transactions)
-    .where(
-      conditions.length > 0
-        ? and(
-            ...conditions,
-            sql`${transactions.type} != 'Payment'`
-          )
-        : sql`${transactions.type} != 'Payment'`
-    )
+    .where(and(...conditions, sql`${transactions.type} != 'Payment'`))
     .groupBy(sql`(substr(${transactions.transactionDate}, 7, 4) || '-' || substr(${transactions.transactionDate}, 1, 2))`)
     .orderBy(sql`(substr(${transactions.transactionDate}, 7, 4) || '-' || substr(${transactions.transactionDate}, 1, 2))`)
-  
+
   return {
     totalSpend,
     spendByCategory,

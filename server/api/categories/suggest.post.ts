@@ -1,10 +1,11 @@
 import { getDb } from '../../db'
-import { transactions, merchants, categories } from '../../db/schema'
-import { eq, isNull, or } from 'drizzle-orm'
+import { transactions, merchants, categories, accounts } from '../../db/schema'
+import { and, eq, isNull, or, inArray } from 'drizzle-orm'
 import { createCategorizerStrategy, type MerchantSummary } from '../../utils/llmCategorizer'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
+  const userId = event.context.user.id
   const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
 
   if (!llmStrategy?.suggestNewCategories) {
@@ -13,17 +14,24 @@ export default defineEventHandler(async () => {
 
   const db = getDb()
 
+  // Scope to user's categories
   const [uncategorizedCategory] = await db
     .select({ id: categories.id })
     .from(categories)
-    .where(eq(categories.name, 'Uncategorized'))
+    .where(and(eq(categories.name, 'Uncategorized'), eq(categories.userId, userId)))
     .limit(1)
 
   const uncategorizedId = uncategorizedCategory?.id ?? null
 
-  const whereClause = uncategorizedId
+  const categoryWhereClause = uncategorizedId
     ? or(isNull(transactions.categoryId), eq(transactions.categoryId, uncategorizedId))
     : isNull(transactions.categoryId)
+
+  // Scope transactions to user's accounts via subquery
+  const userAccountIds = db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
 
   const uncategorized = await db
     .select({
@@ -32,15 +40,19 @@ export default defineEventHandler(async () => {
       merchantId: transactions.merchantId,
     })
     .from(transactions)
-    .where(whereClause)
+    .where(and(inArray(transactions.accountId, userAccountIds), categoryWhereClause))
 
   if (uncategorized.length === 0) {
     return { suggestions: [] }
   }
 
   const [allMerchantsResult, allCategoriesResult] = await Promise.all([
-    db.select({ id: merchants.id, normalizedName: merchants.normalizedName }).from(merchants),
-    db.select({ name: categories.name }).from(categories),
+    db.select({ id: merchants.id, normalizedName: merchants.normalizedName })
+      .from(merchants)
+      .where(eq(merchants.userId, userId)),
+    db.select({ name: categories.name })
+      .from(categories)
+      .where(eq(categories.userId, userId)),
   ])
 
   const merchantMap = new Map(allMerchantsResult.map(m => [m.id, m.normalizedName]))

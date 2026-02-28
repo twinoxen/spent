@@ -1,11 +1,12 @@
 import { getDb } from '../../db'
-import { transactions, merchants, categories, merchantRules } from '../../db/schema'
-import { eq, isNull, or } from 'drizzle-orm'
+import { transactions, merchants, categories, merchantRules, accounts } from '../../db/schema'
+import { and, eq, isNull, or, inArray } from 'drizzle-orm'
 import { autoCategorizeMerchant } from '../../utils/categorizer'
 import { createCategorizerStrategy, type CategorySuggestion, type CategorizationInput } from '../../utils/llmCategorizer'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ approved: CategorySuggestion[] }>(event)
+  const userId = event.context.user.id
 
   if (!Array.isArray(body?.approved) || body.approved.length === 0) {
     throw createError({ statusCode: 400, message: 'No approved suggestions provided.' })
@@ -14,24 +15,28 @@ export default defineEventHandler(async (event) => {
   const db = getDb()
   const config = useRuntimeConfig()
 
-  // 1. Create each approved category and its merchant rules
+  // 1. Create each approved category and its merchant rules (scoped to user)
   let createdCategories = 0
 
   for (const suggestion of body.approved) {
     const [newCategory] = await db
       .insert(categories)
       .values({
+        userId,
         name: suggestion.name,
         icon: suggestion.icon || null,
         color: suggestion.color || null,
       })
       .returning({ id: categories.id })
 
+    if (!newCategory) continue
+
     createdCategories++
 
     if (suggestion.patterns?.length) {
       await db.insert(merchantRules).values(
         suggestion.patterns.map((pattern, i) => ({
+          userId,
           pattern: pattern.toLowerCase(),
           categoryId: newCategory.id,
           priority: suggestion.patterns.length - i,
@@ -40,18 +45,23 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // 2. Re-run auto-categorize on all uncategorized transactions
+  // 2. Re-run auto-categorize on all uncategorized transactions for this user
   const [uncategorizedCategory] = await db
     .select({ id: categories.id })
     .from(categories)
-    .where(eq(categories.name, 'Uncategorized'))
+    .where(and(eq(categories.name, 'Uncategorized'), eq(categories.userId, userId)))
     .limit(1)
 
   const uncategorizedId = uncategorizedCategory?.id ?? null
 
-  const whereClause = uncategorizedId
+  const categoryWhereClause = uncategorizedId
     ? or(isNull(transactions.categoryId), eq(transactions.categoryId, uncategorizedId))
     : isNull(transactions.categoryId)
+
+  const userAccountIds = db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
 
   const uncategorized = await db
     .select({
@@ -62,17 +72,19 @@ export default defineEventHandler(async (event) => {
       merchantId: transactions.merchantId,
     })
     .from(transactions)
-    .where(whereClause)
+    .where(and(inArray(transactions.accountId, userAccountIds), categoryWhereClause))
 
   const allMerchants = await db
     .select({ id: merchants.id, normalizedName: merchants.normalizedName })
     .from(merchants)
+    .where(eq(merchants.userId, userId))
 
   const merchantMap = new Map(allMerchants.map(m => [m.id, m.normalizedName]))
 
   const allCategories = await db
     .select({ id: categories.id, name: categories.name })
     .from(categories)
+    .where(eq(categories.userId, userId))
 
   const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
   const llmCache = new Map<string, number | null>()
@@ -103,7 +115,8 @@ export default defineEventHandler(async (event) => {
       merchantName,
       tx.description,
       undefined,
-      (name) => llmFallback(name, tx)
+      (name) => llmFallback(name, tx),
+      userId
     )
 
     if (categoryId !== null && categoryId !== uncategorizedId) {

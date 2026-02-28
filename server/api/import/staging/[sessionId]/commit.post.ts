@@ -1,10 +1,11 @@
 import { getDb } from '../../../../db'
-import { stagingTransactions, transactions, merchants, importSessions } from '../../../../db/schema'
-import { eq, and } from 'drizzle-orm'
+import { stagingTransactions, transactions, merchants, importSessions, accounts } from '../../../../db/schema'
+import { and, eq } from 'drizzle-orm'
 import { generateFingerprint } from '../../../../utils/fingerprint'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const sessionId = Number(event.context.params?.sessionId)
 
   if (!sessionId || isNaN(sessionId)) {
@@ -19,6 +20,17 @@ export default defineEventHandler(async (event) => {
 
   if (!session) {
     throw createError({ statusCode: 404, message: 'Import session not found' })
+  }
+
+  // Verify the session's account belongs to this user
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, session.accountId), eq(accounts.userId, userId)))
+    .limit(1)
+
+  if (!account) {
+    throw createError({ statusCode: 403, message: 'Access denied' })
   }
 
   if (session.status === 'committed') {
@@ -51,14 +63,14 @@ export default defineEventHandler(async (event) => {
         continue
       }
 
-      // Find or create merchant
+      // Find or create merchant (scoped to user)
       let merchantId: number | null = null
 
       if (row.merchantName) {
         const [existingMerchant] = await db
           .select({ id: merchants.id, rawNames: merchants.rawNames })
           .from(merchants)
-          .where(eq(merchants.normalizedName, row.merchantName))
+          .where(and(eq(merchants.normalizedName, row.merchantName), eq(merchants.userId, userId)))
           .limit(1)
 
         if (existingMerchant) {
@@ -73,9 +85,9 @@ export default defineEventHandler(async (event) => {
         } else {
           const [newMerchant] = await db
             .insert(merchants)
-            .values({ normalizedName: row.merchantName, rawNames: [row.description] })
+            .values({ userId, normalizedName: row.merchantName, rawNames: [row.description] })
             .returning()
-          merchantId = newMerchant.id
+          merchantId = newMerchant?.id ?? null
         }
       }
 

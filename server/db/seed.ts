@@ -1,6 +1,6 @@
 import { getDb } from './index'
 import { categories, merchantRules } from './schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 interface SeedCategory {
   name: string
@@ -99,110 +99,117 @@ const merchantRulesData: MerchantRuleData[] = [
   { pattern: 'trader joe', categoryName: 'Supermarket', priority: 100 },
   { pattern: 'fresh market', categoryName: 'Supermarket', priority: 100 },
   { pattern: 'gilead natural foods', categoryName: 'Specialty Foods', priority: 100 },
-  
+
   // Gas
   { pattern: 'shell oil', categoryName: 'Gas', priority: 100 },
   { pattern: 'exxon', categoryName: 'Gas', priority: 100 },
   { pattern: 'speedway', categoryName: 'Gas', priority: 100 },
   { pattern: 'chevron', categoryName: 'Gas', priority: 100 },
   { pattern: 'bp gas', categoryName: 'Gas', priority: 100 },
-  
+
   // Rideshare
   { pattern: 'uber', categoryName: 'Rideshare', priority: 100 },
   { pattern: 'lyft', categoryName: 'Rideshare', priority: 100 },
-  
+
   // Fast Food
   { pattern: 'taco bell', categoryName: 'Fast Food', priority: 100 },
   { pattern: 'chipotle', categoryName: 'Fast Food', priority: 100 },
   { pattern: 'chick-fil', categoryName: 'Fast Food', priority: 100 },
   { pattern: 'doordash', categoryName: 'Fast Food', priority: 90 },
   { pattern: 'pollo tropical', categoryName: 'Fast Food', priority: 100 },
-  
+
   // Coffee
   { pattern: 'coffee', categoryName: 'Coffee & Drinks', priority: 100 },
   { pattern: 'starbucks', categoryName: 'Coffee & Drinks', priority: 100 },
   { pattern: 'kava', categoryName: 'Coffee & Drinks', priority: 100 },
-  
+
   // Restaurants
   { pattern: 'restaurant', categoryName: 'Restaurants', priority: 80 },
   { pattern: 'tst\\*', categoryName: 'Restaurants', priority: 70 },
   { pattern: 'first watch', categoryName: 'Restaurants', priority: 100 },
   { pattern: "jason's deli", categoryName: 'Restaurants', priority: 100 },
-  
+
   // Shopping
   { pattern: 'burlington', categoryName: 'Clothing', priority: 100 },
   { pattern: 'target', categoryName: 'General Retail', priority: 100 },
   { pattern: 'walmart', categoryName: 'General Retail', priority: 100 },
   { pattern: 'hobby-lobby', categoryName: 'General Retail', priority: 100 },
-  
+
   // Entertainment
   { pattern: 'disney', categoryName: 'Entertainment', priority: 100 },
   { pattern: 'universal studios', categoryName: 'Entertainment', priority: 100 },
   { pattern: 'wdw', categoryName: 'Entertainment', priority: 100 },
   { pattern: 'hemingway', categoryName: 'Entertainment', priority: 100 },
-  
+
   // Travel
   { pattern: 'airport', categoryName: 'Travel', priority: 100 },
   { pattern: 'hotel', categoryName: 'Travel', priority: 100 },
   { pattern: 'brightline', categoryName: 'Public Transit', priority: 100 },
-  
+
   // Personal Care
   { pattern: 'barber', categoryName: 'Personal Care', priority: 100 },
   { pattern: 'salon', categoryName: 'Personal Care', priority: 100 },
   { pattern: 'walgreens', categoryName: 'Personal Care', priority: 90 },
 ]
 
-export async function seedDatabase() {
+export async function seedDatabase(userId: number) {
   const db = getDb()
-  
+
   console.log('🌱 Starting database seed...')
-  
-  // Check if already seeded
-  const existingCategories = await db.select().from(categories).limit(1)
+
+  // Check if already seeded for this user
+  const existingCategories = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.userId, userId))
+    .limit(1)
+
   if (existingCategories.length > 0) {
-    console.log('ℹ️  Database already seeded, skipping...')
+    console.log('ℹ️  Database already seeded for this user, skipping...')
     return
   }
-  
+
   // Insert categories with hierarchy
   const categoryMap = new Map<string, number>()
-  
+
   async function insertCategory(cat: SeedCategory, parentId: number | null = null, sortOrder: number = 0): Promise<void> {
     const [inserted] = await db.insert(categories).values({
+      userId,
       name: cat.name,
       parentId,
       color: cat.color,
       icon: cat.icon,
       sortOrder,
     }).returning()
-    
+
     categoryMap.set(cat.name, inserted.id)
-    
+
     if (cat.children) {
-      for (let i = 0; i < cat.children.length; i++) {
-        await insertCategory(cat.children[i], inserted.id, i)
+      for (const [i, child] of cat.children.entries()) {
+        await insertCategory(child, inserted.id, i)
       }
     }
   }
-  
-  for (let i = 0; i < seedCategories.length; i++) {
-    await insertCategory(seedCategories[i], null, i)
+
+  for (const [i, cat] of seedCategories.entries()) {
+    await insertCategory(cat, null, i)
   }
-  
+
   console.log(`✅ Inserted ${categoryMap.size} categories`)
-  
+
   // Insert merchant rules
   for (const rule of merchantRulesData) {
     const categoryId = categoryMap.get(rule.categoryName)
     if (categoryId) {
       await db.insert(merchantRules).values({
+        userId,
         pattern: rule.pattern,
         categoryId,
         priority: rule.priority,
       })
     }
   }
-  
+
   console.log(`✅ Inserted ${merchantRulesData.length} merchant rules`)
   console.log('🌱 Database seed complete!')
 }

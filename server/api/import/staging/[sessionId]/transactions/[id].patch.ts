@@ -1,6 +1,6 @@
 import { getDb } from '../../../../../db'
-import { stagingTransactions } from '../../../../../db/schema'
-import { eq, and } from 'drizzle-orm'
+import { stagingTransactions, importSessions, accounts } from '../../../../../db/schema'
+import { and, eq } from 'drizzle-orm'
 
 interface UpdateStagingBody {
   categoryId?: number | null
@@ -9,11 +9,33 @@ interface UpdateStagingBody {
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const sessionId = Number(event.context.params?.sessionId)
   const id = Number(event.context.params?.id)
 
   if (!sessionId || isNaN(sessionId) || !id || isNaN(id)) {
     throw createError({ statusCode: 400, message: 'Invalid session or transaction ID' })
+  }
+
+  // Verify the session's account belongs to this user
+  const [session] = await db
+    .select({ id: importSessions.id, accountId: importSessions.accountId })
+    .from(importSessions)
+    .where(eq(importSessions.id, sessionId))
+    .limit(1)
+
+  if (!session) {
+    throw createError({ statusCode: 404, message: 'Import session not found' })
+  }
+
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, session.accountId), eq(accounts.userId, userId)))
+    .limit(1)
+
+  if (!account) {
+    throw createError({ statusCode: 403, message: 'Access denied' })
   }
 
   const body = await readBody<UpdateStagingBody>(event)

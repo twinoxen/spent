@@ -1,18 +1,31 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
+
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+}, (table) => ({
+  emailIdx: index('users_email_idx').on(table.email),
+}))
 
 export const accounts = sqliteTable('accounts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   type: text('type').notNull().default('credit_card'),
   institution: text('institution'),
   lastFour: text('last_four'),
   color: text('color').default('#6366f1'),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
-})
+}, (table) => ({
+  userIdIdx: index('accounts_user_id_idx').on(table.userId),
+}))
 
 export const categories = sqliteTable('categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   parentId: integer('parent_id').references(() => categories.id, { onDelete: 'cascade' }),
   color: text('color'),
@@ -20,25 +33,29 @@ export const categories = sqliteTable('categories', {
   sortOrder: integer('sort_order').default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 }, (table) => ({
+  userIdIdx: index('categories_user_id_idx').on(table.userId),
   parentIdIdx: index('categories_parent_id_idx').on(table.parentId),
 }))
 
 export const merchants = sqliteTable('merchants', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  normalizedName: text('normalized_name').notNull().unique(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  normalizedName: text('normalized_name').notNull(),
   rawNames: text('raw_names', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 }, (table) => ({
-  normalizedNameIdx: index('merchants_normalized_name_idx').on(table.normalizedName),
+  normalizedNameUserIdx: uniqueIndex('merchants_normalized_name_user_idx').on(table.normalizedName, table.userId),
 }))
 
 export const merchantRules = sqliteTable('merchant_rules', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   pattern: text('pattern').notNull(),
   categoryId: integer('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
   priority: integer('priority').default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 }, (table) => ({
+  userIdIdx: index('merchant_rules_user_id_idx').on(table.userId),
   categoryIdIdx: index('merchant_rules_category_id_idx').on(table.categoryId),
   priorityIdx: index('merchant_rules_priority_idx').on(table.priority),
 }))

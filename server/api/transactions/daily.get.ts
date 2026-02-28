@@ -1,6 +1,6 @@
 import { getDb } from '../../db'
-import { transactions } from '../../db/schema'
-import { eq, sql, and, inArray } from 'drizzle-orm'
+import { transactions, accounts } from '../../db/schema'
+import { and, eq, inArray, sql, type SQL } from 'drizzle-orm'
 
 // Stored dates are MM/DD/YYYY — derive ISO string for comparisons
 const isoDate = (col: any) =>
@@ -8,6 +8,7 @@ const isoDate = (col: any) =>
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const query = getQuery(event)
 
   const purchasedBy = query.purchasedBy as string | undefined
@@ -16,7 +17,16 @@ export default defineEventHandler(async (event) => {
     ? accountIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
     : query.accountId ? [parseInt(query.accountId as string)] : []
 
-  const conditions = [sql`${transactions.type} != 'Payment'`]
+  // Subquery: IDs of accounts belonging to this user
+  const userAccountIds = db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.userId, userId))
+
+  const conditions: SQL[] = [
+    sql`${transactions.type} != 'Payment'`,
+    inArray(transactions.accountId, userAccountIds),
+  ]
 
   if (query.year && query.month) {
     // Single-month mode
@@ -33,7 +43,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (purchasedBy) conditions.push(eq(transactions.purchasedBy, purchasedBy))
-  if (accountIds.length === 1) {
+  if (accountIds.length === 1 && accountIds[0] !== undefined) {
     conditions.push(eq(transactions.accountId, accountIds[0]))
   } else if (accountIds.length > 1) {
     conditions.push(inArray(transactions.accountId, accountIds))

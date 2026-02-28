@@ -1,10 +1,22 @@
 import { getDb } from '../../db'
 import { accounts, transactions } from '../../db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const db = getDb()
+  const userId = event.context.user.id
   const id = parseInt(getRouterParam(event, 'id')!)
+
+  // Verify the account belongs to this user
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+    .limit(1)
+
+  if (!account) {
+    throw createError({ statusCode: 404, message: 'Account not found' })
+  }
 
   const countRows = await db
     .select({ count: sql<number>`count(*)` })
@@ -19,14 +31,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const [deleted] = await db
+  await db
     .delete(accounts)
     .where(eq(accounts.id, id))
-    .returning()
-
-  if (!deleted) {
-    throw createError({ statusCode: 404, message: 'Account not found' })
-  }
 
   return { success: true }
 })
