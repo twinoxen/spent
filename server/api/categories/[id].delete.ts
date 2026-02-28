@@ -3,7 +3,7 @@ import { categories } from '../../db/schema'
 import { and, eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const id = Number(event.context.params?.id)
 

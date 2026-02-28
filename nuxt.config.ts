@@ -15,11 +15,11 @@ export default defineNuxtConfig({
     jwtSecret: process.env.JWT_SECRET ?? 'change-me-in-production-use-a-long-random-string',
   },
   nitro: {
+    preset: process.env.VERCEL ? 'vercel' : undefined,
     hooks: {
-      'dev:reload': () => {
-        import('./server/db/migrate').then(({ runMigrations }) => {
-          runMigrations()
-        })
+      'dev:reload': async () => {
+        const { runMigrations } = await import('./server/db/migrate')
+        await runMigrations()
       }
     }
   }

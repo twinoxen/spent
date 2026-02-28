@@ -153,7 +153,7 @@ const merchantRulesData: MerchantRuleData[] = [
 ]
 
 export async function seedDatabase(userId: number) {
-  const db = getDb()
+  const db = await getDb()
 
   console.log('🌱 Starting database seed...')
 

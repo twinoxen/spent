@@ -5,7 +5,7 @@ import { autoCategorizeMerchant } from '../../utils/categorizer'
 import { createCategorizerStrategy, type CategorizationInput } from '../../utils/llmCategorizer'
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const config = useRuntimeConfig()
 

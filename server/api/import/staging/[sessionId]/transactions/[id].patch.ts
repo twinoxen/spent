@@ -8,7 +8,7 @@ interface UpdateStagingBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const sessionId = Number(event.context.params?.sessionId)
   const id = Number(event.context.params?.id)

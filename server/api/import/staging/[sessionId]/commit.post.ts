@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { generateFingerprint } from '../../../../utils/fingerprint'
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const sessionId = Number(event.context.params?.sessionId)
 

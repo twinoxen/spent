@@ -9,7 +9,7 @@ export async function autoCategorizeMerchant(
   llmFallback: ((merchantName: string) => Promise<number | null>) | undefined,
   userId: number
 ): Promise<number | null> {
-  const db = getDb()
+  const db = await getDb()
 
   // Normalize for matching
   const searchText = `${merchantName} ${description}`.toLowerCase()

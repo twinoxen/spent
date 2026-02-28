@@ -3,7 +3,7 @@ import { merchantRules, categories } from '../../db/schema'
 import { and, eq, desc } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const db = getDb()
+  const db = await getDb()
   const userId = event.context.user.id
   const query = getQuery(event)
 

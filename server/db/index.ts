@@ -1,18 +1,27 @@
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema'
 import { join } from 'path'
 
-let db: ReturnType<typeof drizzle> | null = null
+type DbInstance = Awaited<ReturnType<typeof createDb>>
 
-export function getDb() {
+let db: DbInstance | null = null
+
+async function createDb() {
+  if (process.env.DATABASE_URL) {
+    const { neon } = await import('@neondatabase/serverless')
+    const { drizzle } = await import('drizzle-orm/neon-http')
+    return drizzle({ client: neon(process.env.DATABASE_URL), schema })
+  } else {
+    const { PGlite } = await import('@electric-sql/pglite')
+    const { drizzle } = await import('drizzle-orm/pglite')
+    const dbPath = process.env.DATABASE_PATH || join(process.cwd(), 'data', 'finance.pgdata')
+    const client = new PGlite(dbPath)
+    return drizzle(client, { schema })
+  }
+}
+
+export async function getDb(): Promise<DbInstance> {
   if (!db) {
-    const dbPath = process.env.DATABASE_PATH || join(process.cwd(), 'data', 'finance.db')
-    
-    const sqlite = new Database(dbPath)
-    sqlite.pragma('journal_mode = WAL')
-    
-    db = drizzle(sqlite, { schema })
+    db = await createDb()
   }
   return db
 }

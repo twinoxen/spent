@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Email and password are required' })
   }
 
-  const db = getDb()
+  const db = await getDb()
   const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim()))
 
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
