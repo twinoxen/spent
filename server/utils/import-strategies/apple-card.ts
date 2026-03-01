@@ -43,7 +43,8 @@ export const appleCardStrategy: ImportStrategy = {
       clearingDate: row['Clearing Date'] || undefined,
       description: row['Description'],
       merchantName: row['Merchant'] || row['Description'],
-      amount: parseFloat(row['Amount (USD)'].replace(/,/g, '')),
+      // Negate so the convention matches everything else: negative = debit (expense), positive = credit (income/payment)
+      amount: -parseFloat(row['Amount (USD)'].replace(/,/g, '')),
       type: row['Type'],
       purchasedBy: row['Purchased By'] || undefined,
       sourceCategory: row['Category'] || undefined,
