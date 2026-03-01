@@ -167,8 +167,11 @@
         <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">
           Are you sure you want to delete <span class="font-semibold">{{ deletingAccount?.name }}</span>?
         </p>
+        <p v-if="deletingAccount?.transactionCount > 0" class="text-sm text-red-500 dark:text-red-400 mb-2">
+          This will permanently delete all <span class="font-semibold">{{ deletingAccount.transactionCount }} transaction{{ deletingAccount.transactionCount !== 1 ? 's' : '' }}</span> associated with this account.
+        </p>
         <p class="text-sm text-red-500 dark:text-red-400">
-          This cannot be undone. Accounts with transactions cannot be deleted.
+          This cannot be undone.
         </p>
         <div class="flex justify-end gap-3 mt-6">
           <UButton label="Cancel" color="neutral" variant="ghost" @click="deleteModalOpen = false" />
@@ -176,6 +179,56 @@
         </div>
       </template>
     </UModal>
+
+    <!-- Delete User Account Modal -->
+    <UModal v-model:open="deleteUserModalOpen" title="Delete Your Account">
+      <template #body>
+        <div class="space-y-3">
+          <p class="text-sm text-gray-600 dark:text-gray-300">
+            This will permanently delete your account and <span class="font-semibold">all of your data</span>, including all accounts, transactions, categories, and merchant rules.
+          </p>
+          <p class="text-sm text-red-500 dark:text-red-400 font-medium">
+            This action cannot be undone.
+          </p>
+          <div class="pt-1">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+              Type <span class="font-mono text-gray-700 dark:text-gray-200">delete my account</span> to confirm
+            </label>
+            <input
+              v-model="deleteUserConfirmText"
+              type="text"
+              placeholder="delete my account"
+              class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <UButton label="Cancel" color="neutral" variant="ghost" @click="deleteUserModalOpen = false" />
+          <UButton
+            label="Permanently Delete Account"
+            color="error"
+            :loading="deletingUser"
+            :disabled="deleteUserConfirmText !== 'delete my account'"
+            @click="deleteUserAccount"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Danger Zone -->
+    <div class="mt-12 border border-red-200 dark:border-red-800 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-red-600 dark:text-red-400 mb-1">Danger Zone</h2>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        Permanently delete your account and all associated data. This cannot be undone.
+      </p>
+      <UButton
+        label="Delete My Account"
+        color="error"
+        variant="outline"
+        icon="i-heroicons-trash"
+        @click="deleteUserModalOpen = true; deleteUserConfirmText = ''"
+      />
+    </div>
   </div>
 </template>
 
@@ -210,6 +263,10 @@ const saving = ref(false)
 const deleteModalOpen = ref(false)
 const deletingAccount = ref<any>(null)
 const deleting = ref(false)
+
+const deleteUserModalOpen = ref(false)
+const deleteUserConfirmText = ref('')
+const deletingUser = ref(false)
 
 const form = ref({
   name: '',
@@ -291,6 +348,19 @@ async function deleteAccount() {
     alert(msg)
   } finally {
     deleting.value = false
+  }
+}
+
+async function deleteUserAccount() {
+  if (deleteUserConfirmText.value !== 'delete my account') return
+  deletingUser.value = true
+  try {
+    await $fetch('/api/auth/me', { method: 'DELETE' })
+    await navigateTo('/login')
+  } catch (error) {
+    console.error('Failed to delete account:', error)
+  } finally {
+    deletingUser.value = false
   }
 }
 
