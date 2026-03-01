@@ -175,7 +175,7 @@
               type="number"
               step="0.01"
               class="text-sm font-semibold tabular-nums w-24 text-right flex-shrink-0 bg-transparent border-b border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-primary-500 dark:focus:border-primary-400 focus:outline-none px-1 py-0.5 rounded-sm transition-colors"
-              :class="tx.amount < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'"
+              :class="tx.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'"
               @change="updateAmount(tx, ($event.target as HTMLInputElement).value)"
             />
           </div>
