@@ -134,6 +134,35 @@
       </template>
     </UModal>
 
+    <!-- Delete Transaction Confirmation Modal -->
+    <UModal v-model:open="showDeleteModal">
+      <template #content>
+        <UCard>
+          <template #header>
+            <p class="text-base font-semibold text-gray-800 dark:text-gray-100">Delete Transaction</p>
+          </template>
+          <div class="space-y-2">
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+              Are you sure you want to delete this transaction?
+            </p>
+            <div class="rounded-md bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm">
+              <p class="font-medium text-gray-800 dark:text-gray-100">{{ deletingTransaction?.description }}</p>
+              <p class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
+                {{ formatDate(deletingTransaction?.transactionDate) }} &middot; {{ formatCurrency(Math.abs(deletingTransaction?.amount ?? 0)) }}
+              </p>
+            </div>
+            <p class="text-xs text-red-500 dark:text-red-400">This cannot be undone.</p>
+          </div>
+          <template #footer>
+            <div class="flex justify-end gap-3">
+              <UButton label="Cancel" color="neutral" variant="ghost" @click="showDeleteModal = false" />
+              <UButton label="Delete" color="error" :loading="deleteLoading" @click="deleteTransaction" />
+            </div>
+          </template>
+        </UCard>
+      </template>
+    </UModal>
+
     <!-- Filters -->
     <UCard class="mb-6">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -246,13 +275,14 @@
               <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Purchased By</th>
               <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Account</th>
               <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Amount</th>
+              <th class="px-3 py-3" />
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
             <tr
               v-for="transaction in transactions"
               :key="transaction.id"
-              class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
             >
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 tabular-nums">
                 {{ formatDate(transaction.transactionDate) }}
@@ -296,6 +326,15 @@
               >
                 {{ transaction.amount >= 0 ? '+' : '' }}{{ formatCurrency(Math.abs(transaction.amount)) }}
               </td>
+              <td class="px-3 py-3 whitespace-nowrap text-right">
+                <button
+                  class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Delete transaction"
+                  @click="confirmDeleteTransaction(transaction)"
+                >
+                  <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -332,6 +371,11 @@ const offset = ref(0)
 const showAddModal = ref(false)
 const addLoading = ref(false)
 const addError = ref<string | null>(null)
+
+// Delete Transaction modal
+const showDeleteModal = ref(false)
+const deletingTransaction = ref<any>(null)
+const deleteLoading = ref(false)
 
 function defaultNewTx() {
   return {
@@ -385,6 +429,26 @@ async function submitTransaction() {
     addError.value = err?.data?.message ?? 'Failed to add transaction.'
   } finally {
     addLoading.value = false
+  }
+}
+
+function confirmDeleteTransaction(tx: any) {
+  deletingTransaction.value = tx
+  showDeleteModal.value = true
+}
+
+async function deleteTransaction() {
+  if (!deletingTransaction.value) return
+  deleteLoading.value = true
+  try {
+    await $fetch(`/api/transactions/${deletingTransaction.value.id}`, { method: 'DELETE' })
+    showDeleteModal.value = false
+    transactions.value = transactions.value.filter(t => t.id !== deletingTransaction.value.id)
+    total.value = Math.max(0, total.value - 1)
+  } catch (err: any) {
+    console.error('Failed to delete transaction:', err)
+  } finally {
+    deleteLoading.value = false
   }
 }
 
