@@ -139,7 +139,7 @@
               {{ formatDate(tx.transactionDate) }}
             </span>
 
-            <!-- Description + merchant -->
+            <!-- Description + merchant + duplicate attribution -->
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                 {{ tx.merchantName || tx.description }}
@@ -147,15 +147,17 @@
               <p v-if="tx.merchantName && tx.merchantName !== tx.description" class="text-xs text-gray-400 dark:text-gray-500 truncate">
                 {{ tx.description }}
               </p>
+              <p v-if="tx.isDuplicate" class="text-xs text-amber-600 dark:text-amber-500 truncate mt-0.5">
+                <span class="font-medium">Already imported</span>
+                <template v-if="tx.duplicateOf">
+                  · {{ formatDate(tx.duplicateOf.transactionDate) }}
+                  <template v-if="tx.duplicateOf.description !== (tx.merchantName || tx.description)">
+                    · {{ tx.duplicateOf.description }}
+                  </template>
+                  · {{ formatAmount(tx.duplicateOf.amount) }}
+                </template>
+              </p>
             </div>
-
-            <!-- Duplicate badge -->
-            <span
-              v-if="tx.isDuplicate"
-              class="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-            >
-              duplicate
-            </span>
 
             <!-- Category selector -->
             <div class="w-44 flex-shrink-0">
@@ -255,6 +257,13 @@ const route = useRoute()
 const router = useRouter()
 const sessionId = Number(route.params.sessionId)
 
+interface DuplicateOf {
+  id: number
+  transactionDate: string
+  description: string
+  amount: number
+}
+
 interface StagingTransaction {
   id: number
   importSessionId: number
@@ -270,6 +279,8 @@ interface StagingTransaction {
   categoryId: number | null
   categoryName: string | null
   isDuplicate: boolean
+  duplicateOfId: number | null
+  duplicateOf: DuplicateOf | null
   isSelected: boolean
 }
 
