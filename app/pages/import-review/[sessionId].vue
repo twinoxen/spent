@@ -169,13 +169,15 @@
               </select>
             </div>
 
-            <!-- Amount -->
-            <span
-              class="text-sm font-semibold tabular-nums w-20 text-right flex-shrink-0"
+            <!-- Amount (editable) -->
+            <input
+              :value="tx.amount"
+              type="number"
+              step="0.01"
+              class="text-sm font-semibold tabular-nums w-24 text-right flex-shrink-0 bg-transparent border-b border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-primary-500 dark:focus:border-primary-400 focus:outline-none px-1 py-0.5 rounded-sm transition-colors"
               :class="tx.amount < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'"
-            >
-              {{ formatAmount(tx.amount) }}
-            </span>
+              @change="updateAmount(tx, ($event.target as HTMLInputElement).value)"
+            />
           </div>
 
           <div v-if="stagingData.transactions.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
@@ -375,6 +377,22 @@ async function updateCategory(tx: StagingTransaction, value: string) {
     tx.categoryId = oldCategoryId
     tx.categoryName = stagingData.value?.categories.find(c => c.id === oldCategoryId)?.name ?? null
     console.error('Failed to update category:', error)
+  }
+}
+
+async function updateAmount(tx: StagingTransaction, value: string) {
+  const newAmount = parseFloat(value)
+  if (isNaN(newAmount)) return
+  const oldAmount = tx.amount
+  tx.amount = newAmount
+  try {
+    await $fetch(`/api/import/staging/${sessionId}/transactions/${tx.id}`, {
+      method: 'PATCH',
+      body: { amount: newAmount },
+    })
+  } catch (error) {
+    tx.amount = oldAmount
+    console.error('Failed to update amount:', error)
   }
 }
 

@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm'
 interface UpdateStagingBody {
   categoryId?: number | null
   isSelected?: boolean
+  amount?: number
 }
 
 export default defineEventHandler(async (event) => {
@@ -40,13 +41,19 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<UpdateStagingBody>(event)
 
-  if (body.categoryId === undefined && body.isSelected === undefined) {
+  if (body.categoryId === undefined && body.isSelected === undefined && body.amount === undefined) {
     throw createError({ statusCode: 400, message: 'No fields to update' })
   }
 
   const updates: Partial<typeof stagingTransactions.$inferInsert> = {}
   if (body.categoryId !== undefined) updates.categoryId = body.categoryId
   if (body.isSelected !== undefined) updates.isSelected = body.isSelected
+  if (body.amount !== undefined) {
+    if (typeof body.amount !== 'number' || isNaN(body.amount)) {
+      throw createError({ statusCode: 400, message: 'Invalid amount value' })
+    }
+    updates.amount = body.amount
+  }
 
   const [updated] = await db
     .update(stagingTransactions)

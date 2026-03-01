@@ -68,7 +68,7 @@ Return a JSON object with a "transactions" array:
 }
 
 Rules:
-- amount: always a positive number regardless of debit/credit
+- amount: use NEGATIVE numbers for money leaving the account (debits, charges, purchases, fees, outgoing transfers, bill payments) and POSITIVE numbers for money entering the account (income, refunds, credits, deposits, incoming transfers)
 - type: "Purchase" for charges/debits, "Payment" for payments to the account, "Credit" for refunds/credits, "Fee" for fees, "Transfer" for transfers
 - transactionDate: YYYY-MM-DD format only
 - merchantName: clean, human-readable (e.g. "AMZN MKTP US*AB1CD" → "Amazon")
@@ -103,7 +103,7 @@ Rules:
     clearingDate: t.clearingDate ?? undefined,
     description: t.description,
     merchantName: t.merchantName || t.description,
-    amount: typeof t.amount === 'number' ? Math.abs(t.amount) : Math.abs(parseFloat(String(t.amount))),
+    amount: typeof t.amount === 'number' ? t.amount : parseFloat(String(t.amount)),
     type: t.type || 'Purchase',
     purchasedBy: undefined,
     sourceCategory: undefined,
