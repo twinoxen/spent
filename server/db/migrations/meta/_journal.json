@@ -8,6 +8,13 @@
       "when": 1772352297009,
       "tag": "0000_large_arachne",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772355404869,
+      "tag": "0001_colorful_green_goblin",
+      "breakpoints": true
     }
   ]
 }

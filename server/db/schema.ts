@@ -114,6 +114,7 @@ export const stagingTransactions = pgTable('staging_transactions', {
   fingerprint: text('fingerprint').notNull(),
   categoryId: integer('category_id').references(() => categories.id, { onDelete: 'set null' }),
   isDuplicate: boolean('is_duplicate').notNull().default(false),
+  duplicateOfId: integer('duplicate_of_id').references(() => transactions.id, { onDelete: 'set null' }),
   isSelected: boolean('is_selected').notNull().default(true),
 }, (table) => ({
   importSessionIdIdx: index('staging_transactions_import_session_id_idx').on(table.importSessionId),

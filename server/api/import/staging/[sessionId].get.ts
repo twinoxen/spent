@@ -1,6 +1,6 @@
 import { getDb } from '../../../db'
-import { stagingTransactions, importSessions, categories, accounts } from '../../../db/schema'
-import { and, eq } from 'drizzle-orm'
+import { stagingTransactions, importSessions, categories, accounts, transactions } from '../../../db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const db = await getDb()
@@ -55,12 +55,40 @@ export default defineEventHandler(async (event) => {
       categoryId: stagingTransactions.categoryId,
       categoryName: categories.name,
       isDuplicate: stagingTransactions.isDuplicate,
+      duplicateOfId: stagingTransactions.duplicateOfId,
       isSelected: stagingTransactions.isSelected,
     })
     .from(stagingTransactions)
     .leftJoin(categories, eq(stagingTransactions.categoryId, categories.id))
     .where(eq(stagingTransactions.importSessionId, sessionId))
     .orderBy(stagingTransactions.transactionDate)
+
+  // Fetch existing transaction details for any duplicates
+  const duplicateIds = rows
+    .map(r => r.duplicateOfId)
+    .filter((id): id is number => id != null)
+
+  const duplicateMap = new Map<number, { id: number; transactionDate: string; description: string; amount: number }>()
+  if (duplicateIds.length > 0) {
+    const existingTxs = await db
+      .select({
+        id: transactions.id,
+        transactionDate: transactions.transactionDate,
+        description: transactions.description,
+        amount: transactions.amount,
+      })
+      .from(transactions)
+      .where(inArray(transactions.id, duplicateIds))
+
+    for (const tx of existingTxs) {
+      duplicateMap.set(tx.id, tx)
+    }
+  }
+
+  const enrichedRows = rows.map(row => ({
+    ...row,
+    duplicateOf: row.duplicateOfId != null ? (duplicateMap.get(row.duplicateOfId) ?? null) : null,
+  }))
 
   const allCategories = await db
     .select({ id: categories.id, name: categories.name })
@@ -70,7 +98,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     session,
-    transactions: rows,
+    transactions: enrichedRows,
     categories: allCategories,
   }
 })

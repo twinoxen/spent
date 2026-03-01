@@ -128,12 +128,18 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
         )
 
         const existing = await db
-          .select({ id: transactions.id })
+          .select({
+            id: transactions.id,
+            transactionDate: transactions.transactionDate,
+            description: transactions.description,
+            amount: transactions.amount,
+          })
           .from(transactions)
           .where(eq(transactions.fingerprint, fingerprint))
           .limit(1)
 
         const isDuplicate = existing.length > 0
+        const duplicateOfId = isDuplicate ? existing[0].id : null
 
         if (isDuplicate) {
           duplicateCount++
@@ -160,6 +166,7 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
           fingerprint,
           categoryId,
           isDuplicate,
+          duplicateOfId,
           isSelected: !isDuplicate,
         })
 
