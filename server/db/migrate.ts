@@ -3,12 +3,14 @@ import { join } from 'path'
 export async function runMigrations() {
   const migrationsFolder = join(process.cwd(), 'server', 'db', 'migrations')
 
+  const databaseUrl = process.env.STORAGE_DATABASE_URL ?? process.env.DATABASE_URL
+
   try {
-    if (process.env.DATABASE_URL) {
+    if (databaseUrl) {
       const { neon } = await import('@neondatabase/serverless')
       const { drizzle } = await import('drizzle-orm/neon-http')
       const { migrate } = await import('drizzle-orm/neon-http/migrator')
-      const db = drizzle({ client: neon(process.env.DATABASE_URL) })
+      const db = drizzle({ client: neon(databaseUrl) })
       await migrate(db, { migrationsFolder })
     } else {
       const { PGlite } = await import('@electric-sql/pglite')

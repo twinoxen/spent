@@ -10,7 +10,6 @@
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:migrate:neon": "DATABASE_URL=$DATABASE_URL drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:reset": "rm -rf ./data/finance.pgdata && drizzle-kit migrate",
     "dev:fresh": "npm run db:reset && nuxt dev"

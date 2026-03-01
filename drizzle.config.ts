@@ -5,6 +5,6 @@ export default {
   out: './server/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'file:./data/finance.pgdata',
+    url: process.env.STORAGE_DATABASE_URL ?? process.env.DATABASE_URL ?? '',
   },
 } satisfies Config
