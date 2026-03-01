@@ -212,7 +212,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p class="text-xs text-amber-700 dark:text-amber-400">
-                PDF statements are parsed using AI. Text is extracted locally, then sent to OpenAI to identify transactions. This requires an OpenAI API key and may take a few seconds longer than CSV imports.
+                PDF imports use AI to identify transactions and may take a moment longer than CSV.
               </p>
             </div>
           </div>
