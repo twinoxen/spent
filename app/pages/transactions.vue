@@ -292,9 +292,9 @@
               </td>
               <td
                 class="px-6 py-3 whitespace-nowrap text-sm text-right font-semibold tabular-nums"
-                :class="transaction.type === 'Payment' ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-900 dark:text-white'"
+                :class="transaction.amount >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-900 dark:text-white'"
               >
-                {{ transaction.type === 'Payment' ? '−' : '' }}{{ formatCurrency(Math.abs(transaction.amount)) }}
+                {{ transaction.amount >= 0 ? '+' : '' }}{{ formatCurrency(Math.abs(transaction.amount)) }}
               </td>
             </tr>
           </tbody>

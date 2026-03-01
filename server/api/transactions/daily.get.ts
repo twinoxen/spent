@@ -17,6 +17,19 @@ export default defineEventHandler(async (event) => {
     ? accountIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
     : query.accountId ? [parseInt(query.accountId as string)] : []
 
+  // flow=expense (default) → negative amounts (money out)
+  // flow=income            → positive amounts (money in)
+  const flow = (query.flow as string | undefined) === 'income' ? 'income' : 'expense'
+  const flowCondition = flow === 'income'
+    ? sql`${transactions.amount} > 0`
+    : sql`${transactions.amount} < 0`
+
+  // For expenses: negate the sum so the result is a positive figure.
+  // For income: sum is already positive.
+  const sumExpr = flow === 'income'
+    ? sql<number>`sum(${transactions.amount})`
+    : sql<number>`-sum(${transactions.amount})`
+
   // Subquery: IDs of accounts belonging to this user
   const userAccountIds = db
     .select({ id: accounts.id })
@@ -24,7 +37,7 @@ export default defineEventHandler(async (event) => {
     .where(eq(accounts.userId, userId))
 
   const conditions: SQL[] = [
-    sql`${transactions.type} != 'Payment'`,
+    flowCondition,
     inArray(transactions.accountId, userAccountIds),
   ]
 
@@ -55,7 +68,7 @@ export default defineEventHandler(async (event) => {
   const rows = await db
     .select({
       date: fullDate,
-      total: sql<number>`sum(${transactions.amount})`,
+      total: sumExpr,
       count: sql<number>`count(*)`,
     })
     .from(transactions)
@@ -63,5 +76,5 @@ export default defineEventHandler(async (event) => {
     .groupBy(fullDate)
     .orderBy(fullDate)
 
-  return { days: rows }
+  return { flow, days: rows }
 })
