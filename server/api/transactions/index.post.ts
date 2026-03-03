@@ -24,6 +24,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'accountId, transactionDate, description, type, and amount are required' })
   }
 
+  // Income types are stored as positive; all other types (purchases, fees, etc.) as negative.
+  const INCOME_TYPES = new Set(['Payment', 'Credit', 'Adjustment', 'Deposit', 'Refund'])
+  const isIncome = INCOME_TYPES.has(String(type))
+  const signedAmount = isIncome ? Math.abs(Number(amount)) : -Math.abs(Number(amount))
+
   // Verify account exists and belongs to this user
   const [account] = await db
     .select({ id: accounts.id })
@@ -52,7 +57,7 @@ export default defineEventHandler(async (event) => {
   const [y, m, d] = String(transactionDate).split('-')
   const storedDate = `${m}/${d}/${y}`
 
-  const fingerprint = generateFingerprint(storedDate, description, Number(amount), purchasedBy ?? '')
+  const fingerprint = generateFingerprint(storedDate, description, signedAmount, purchasedBy ?? '')
 
   // Check for duplicate fingerprint
   const [existing] = await db
@@ -100,7 +105,7 @@ export default defineEventHandler(async (event) => {
     transactionDate: storedDate,
     description: String(description),
     type: String(type),
-    amount: Number(amount),
+    amount: signedAmount,
     merchantId: resolvedMerchantId,
     categoryId: categoryId ? Number(categoryId) : null,
     purchasedBy: purchasedBy?.trim() || null,
