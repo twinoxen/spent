@@ -257,7 +257,10 @@
             </button>
           </span>
         </div>
-        <UButton label="Clear Filters" color="neutral" variant="ghost" size="sm" @click="clearFilters" />
+        <div class="flex items-center gap-2">
+          <UButton label="Export CSV" color="neutral" variant="outline" size="sm" icon="i-heroicons-arrow-down-tray" @click="exportCsv" />
+          <UButton label="Clear Filters" color="neutral" variant="ghost" size="sm" @click="clearFilters" />
+        </div>
       </div>
     </UCard>
 
@@ -580,6 +583,17 @@ function debouncedLoadTransactions() {
     offset.value = 0
     loadTransactions()
   }, 500)
+}
+
+function exportCsv() {
+  const params = new URLSearchParams()
+  if (filters.value.search) params.set('search', filters.value.search)
+  if (filters.value.categoryId) params.set('categoryId', String(Number(filters.value.categoryId)))
+  if (filters.value.purchasedBy) params.set('purchasedBy', filters.value.purchasedBy)
+  if (filters.value.type) params.set('type', filters.value.type)
+  if (filters.value.accountId) params.set('accountId', String(filters.value.accountId))
+  if (filters.value.date) params.set('date', filters.value.date)
+  window.open(`/api/export/transactions?${params.toString()}`, '_self')
 }
 
 onMounted(async () => {
