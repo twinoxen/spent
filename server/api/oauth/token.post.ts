@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { SignJWT } from 'jose'
-import { sha256 } from '@noble/hashes/sha256'
+import { sha256 } from '@noble/hashes/sha2.js'
 import { getDb } from '../../db'
 import { oauthCodes, users } from '../../db/schema'
 

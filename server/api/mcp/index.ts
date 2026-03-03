@@ -425,6 +425,6 @@ export default defineEventHandler(async (event) => {
 
   await transport.handleRequest(event.node.req, event.node.res, parsedBody)
 
-  // Tell Nitro the response has already been sent by the MCP transport
-  event._handled = true
+  // Tell H3/Nitro the response has already been sent by the MCP transport
+  event.handled = true
 })
