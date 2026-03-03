@@ -100,6 +100,27 @@ export const transactions = pgTable('transactions', {
   accountIdIdx: index('transactions_account_id_idx').on(table.accountId),
 }))
 
+export const oauthClients = pgTable('oauth_clients', {
+  id: serial('id').primaryKey(),
+  clientId: text('client_id').notNull().unique(),
+  clientName: text('client_name').notNull(),
+  redirectUris: jsonb('redirect_uris').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  createdAt: timestamp('created_at').default(sql`now()`),
+})
+
+export const oauthCodes = pgTable('oauth_codes', {
+  id: serial('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  clientId: text('client_id').notNull().references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+  redirectUri: text('redirect_uri').notNull(),
+  codeChallenge: text('code_challenge').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  used: boolean('used').notNull().default(false),
+}, (table) => ({
+  codeIdx: index('oauth_codes_code_idx').on(table.code),
+}))
+
 export const stagingTransactions = pgTable('staging_transactions', {
   id: serial('id').primaryKey(),
   importSessionId: integer('import_session_id').notNull().references(() => importSessions.id, { onDelete: 'cascade' }),

@@ -13,6 +13,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     openaiApiKey: process.env.OPENAI_API_KEY ?? '',
     jwtSecret: process.env.JWT_SECRET ?? 'change-me-in-production-use-a-long-random-string',
+    public: {
+      appUrl: process.env.APP_URL ?? 'https://spent-iota.vercel.app',
+    },
   },
   nitro: {
     preset: process.env.VERCEL ? 'vercel' : undefined,
