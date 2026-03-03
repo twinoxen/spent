@@ -38,16 +38,23 @@ export const appleCardStrategy: ImportStrategy = {
       trim: true,
     }) as AppleCardRow[]
 
-    return records.map((row) => ({
-      transactionDate: row['Transaction Date'],
-      clearingDate: row['Clearing Date'] || undefined,
-      description: row['Description'],
-      merchantName: row['Merchant'] || row['Description'],
-      // Negate so the convention matches everything else: negative = debit (expense), positive = credit (income/payment)
-      amount: -parseFloat(row['Amount (USD)'].replace(/,/g, '')),
-      type: row['Type'],
-      purchasedBy: row['Purchased By'] || undefined,
-      sourceCategory: row['Category'] || undefined,
-    }))
+    // Types that represent money coming in (credits, payments, cashback)
+    const CREDIT_TYPES = new Set(['Payment', 'Credit', 'Adjustment'])
+
+    return records.map((row) => {
+      const rawAmount = Math.abs(parseFloat(row['Amount (USD)'].replace(/,/g, '')))
+      const isCredit = CREDIT_TYPES.has(row['Type'])
+      return {
+        transactionDate: row['Transaction Date'],
+        clearingDate: row['Clearing Date'] || undefined,
+        description: row['Description'],
+        merchantName: row['Merchant'] || row['Description'],
+        // Credits/payments → positive (income); purchases/fees → negative (expense)
+        amount: isCredit ? rawAmount : -rawAmount,
+        type: row['Type'],
+        purchasedBy: row['Purchased By'] || undefined,
+        sourceCategory: row['Category'] || undefined,
+      }
+    })
   },
 }

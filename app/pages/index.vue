@@ -121,22 +121,31 @@
 
       <!-- KPI Row -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <!-- Total Spend -->
         <UCard>
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Total Spend</p>
             <p class="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(stats.totalSpend) }}</p>
-            <p class="text-xs text-gray-400 dark:text-gray-500">{{ dateRangeLabel }}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">
+              {{ dateRangeLabel }}
+              <template v-if="avgMonthly > 0"> · {{ formatCurrency(avgMonthly) }}/mo</template>
+            </p>
           </div>
         </UCard>
 
+        <!-- Total Income -->
         <UCard>
           <div class="space-y-1">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Monthly Avg</p>
-            <p class="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(avgMonthly) }}</p>
-            <p class="text-xs text-gray-400 dark:text-gray-500">per month</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Total Income</p>
+            <p class="text-2xl font-bold tabular-nums" :class="stats.totalIncome > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-900 dark:text-white'">
+              {{ formatCurrency(stats.totalIncome) }}
+            </p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">credits &amp; payments in</p>
           </div>
         </UCard>
 
+        <!-- Transaction count -->
         <UCard>
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Transactions</p>
@@ -145,6 +154,7 @@
           </div>
         </UCard>
 
+        <!-- Uncategorized -->
         <UCard>
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Uncategorized</p>
@@ -154,6 +164,7 @@
             <p class="text-xs text-gray-400 dark:text-gray-500">{{ uncategorizedCount > 0 ? 'need review' : 'all tagged' }}</p>
           </div>
         </UCard>
+
       </div>
 
       <!-- Spending by Category -->
