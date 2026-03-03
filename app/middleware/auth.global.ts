@@ -1,6 +1,6 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  // Skip auth check on login page
-  if (to.path === '/login') return
+  // Skip auth check on login page and OAuth authorize page
+  if (to.path === '/login' || to.path === '/oauth/authorize') return
 
   const { user, initialized, fetchUser } = useAuth()
 
