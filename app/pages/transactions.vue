@@ -391,6 +391,59 @@
                 </template>
               </select>
 
+              <!-- Create new category inline -->
+              <div v-if="!showNewCategoryForm" class="mt-1.5">
+                <button
+                  type="button"
+                  class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
+                  @click="showNewCategoryForm = true"
+                >
+                  <UIcon name="i-heroicons-plus-circle" class="w-3.5 h-3.5" />
+                  Create new category
+                </button>
+              </div>
+
+              <div
+                v-else
+                class="mt-2 p-3 rounded-md bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 space-y-2"
+              >
+                <p class="text-xs font-medium text-gray-700 dark:text-gray-300">New category</p>
+                <input
+                  v-model="newCategoryName"
+                  type="text"
+                  placeholder="Category name"
+                  class="w-full px-2.5 py-1.5 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  @keydown.enter.prevent="createCategoryInline"
+                  @keydown.escape="showNewCategoryForm = false"
+                />
+                <select
+                  v-model="newCategoryParentId"
+                  class="w-full px-2.5 py-1.5 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">No parent (top-level)</option>
+                  <option v-for="parent in categoryTree" :key="parent.id" :value="String(parent.id)">
+                    {{ [parent.icon, parent.name].filter(Boolean).join(' ') }}
+                  </option>
+                </select>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    :disabled="!newCategoryName.trim() || isSavingNewCategory"
+                    class="px-2.5 py-1 rounded text-xs font-medium bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    @click="createCategoryInline"
+                  >
+                    {{ isSavingNewCategory ? 'Creating…' : 'Create' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 rounded text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                    @click="showNewCategoryForm = false; newCategoryName = ''; newCategoryParentId = ''"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
               <!-- Smart toggle: create category rule -->
               <div
                 v-if="categoryChanged && (editForm.merchantId !== null || editForm.merchantIsNew)"
@@ -692,20 +745,8 @@
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                 {{ transaction.merchant?.name || '—' }}
               </td>
-              <td class="px-6 py-3 whitespace-nowrap text-sm" @click.stop>
-                <select
-                  :value="transaction.category?.id ? String(transaction.category.id) : ''"
-                  class="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 border border-transparent text-gray-700 dark:text-gray-300 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500 w-40"
-                  @change="(e) => updateCategory(transaction.id, (e.target as HTMLSelectElement).value)"
-                >
-                  <option value="">Uncategorized</option>
-                  <template v-for="parent in categoryTree" :key="parent.id">
-                    <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
-                      <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
-                    </optgroup>
-                    <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
-                  </template>
-                </select>
+              <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                {{ transaction.category?.name || '—' }}
               </td>
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                 {{ transaction.purchasedBy }}
@@ -806,6 +847,10 @@ const editError = ref<string | null>(null)
 const applyMerchantToAll = ref(false)
 const createCategoryRule = ref(false)
 const showMerchantDropdown = ref(false)
+const showNewCategoryForm = ref(false)
+const newCategoryName = ref('')
+const newCategoryParentId = ref('')
+const isSavingNewCategory = ref(false)
 const allMerchants = ref<Array<{ id: number, normalizedName: string, rawNames: string[] }>>([])
 
 function defaultEditForm() {
@@ -1032,6 +1077,9 @@ function openEditModal(tx: any) {
   applyMerchantToAll.value = false
   createCategoryRule.value = false
   showMerchantDropdown.value = false
+  showNewCategoryForm.value = false
+  newCategoryName.value = ''
+  newCategoryParentId.value = ''
 
   editForm.value = {
     transactionDate: tx.transactionDate ?? '',
@@ -1098,6 +1146,30 @@ function onMerchantBlur() {
       }
     }
   }, 150)
+}
+
+async function createCategoryInline() {
+  const name = newCategoryName.value.trim()
+  if (!name) return
+  isSavingNewCategory.value = true
+  try {
+    const created = await $fetch('/api/categories', {
+      method: 'POST',
+      body: {
+        name,
+        parentId: newCategoryParentId.value ? Number(newCategoryParentId.value) : null,
+      },
+    }) as any
+    await loadCategories()
+    editForm.value.categoryId = String(created.id)
+    showNewCategoryForm.value = false
+    newCategoryName.value = ''
+    newCategoryParentId.value = ''
+  } catch (err: any) {
+    editError.value = err?.data?.message ?? 'Failed to create category.'
+  } finally {
+    isSavingNewCategory.value = false
+  }
 }
 
 async function saveEdit() {
@@ -1195,24 +1267,6 @@ async function saveEdit() {
   }
 }
 
-async function updateCategory(transactionId: number, value: string) {
-  const categoryId = value ? Number(value) : null
-  try {
-    await $fetch(`/api/transactions/${transactionId}`, {
-      method: 'PATCH',
-      body: { categoryId },
-    })
-    // Optimistic local update — no full reload needed
-    const tx = transactions.value.find(t => t.id === transactionId)
-    if (tx) {
-      tx.category = categoryId
-        ? allCategories.value.find(c => c.id === categoryId) ?? null
-        : null
-    }
-  } catch (error) {
-    console.error('Failed to update category:', error)
-  }
-}
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
