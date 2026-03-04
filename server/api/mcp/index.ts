@@ -14,7 +14,7 @@ function buildMcpServer(userId: number) {
 
   // ─── Accounts ──────────────────────────────────────────────────────────────
 
-  server.tool('list_accounts', 'List all of your financial accounts with transaction counts.', {}, async () => {
+  server.tool('list_accounts', 'List all financial accounts with balances, transaction counts, credit limits, and utilization.', {}, async () => {
     const db = await getDb()
     const results = await db
       .select({
@@ -24,7 +24,21 @@ function buildMcpServer(userId: number) {
         institution: accounts.institution,
         lastFour: accounts.lastFour,
         color: accounts.color,
+        currentBalance: accounts.currentBalance,
+        balanceAsOfDate: accounts.balanceAsOfDate,
+        creditLimit: accounts.creditLimit,
+        apr: accounts.apr,
         transactionCount: sql<number>`count(${transactions.id})`,
+        txSumAfterSnapshot: sql<number | null>`
+          sum(
+            case
+              when ${accounts.balanceAsOfDate} is not null
+                and ${transactions.transactionDate} > ${accounts.balanceAsOfDate}
+              then ${transactions.amount}
+              else null
+            end
+          )
+        `,
       })
       .from(accounts)
       .leftJoin(transactions, eq(transactions.accountId, accounts.id))
@@ -32,7 +46,9 @@ function buildMcpServer(userId: number) {
       .groupBy(accounts.id)
       .orderBy(accounts.name)
 
-    return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] }
+    const { computeAccountBalance } = await import('../../utils/computeBalances')
+    const enriched = results.map(row => computeAccountBalance(row as any))
+    return { content: [{ type: 'text', text: JSON.stringify(enriched, null, 2) }] }
   })
 
   server.tool('create_account', 'Create a new financial account.', {
@@ -40,14 +56,23 @@ function buildMcpServer(userId: number) {
     type: z.enum(['credit_card', 'checking', 'savings', 'investment', 'other']).optional().default('credit_card'),
     institution: z.string().optional().describe('Bank or institution name'),
     lastFour: z.string().optional().describe('Last 4 digits of the card/account number'),
+    currentBalance: z.number().optional().describe('Current balance snapshot (amount owed for credit cards, available balance for checking/savings)'),
+    balanceAsOfDate: z.string().optional().describe('Date of the balance snapshot in YYYY-MM-DD format'),
+    creditLimit: z.number().optional().describe('Total credit limit (credit cards only)'),
+    apr: z.number().optional().describe('Annual percentage rate, e.g. 24.99 (credit cards only)'),
   }, async (args) => {
     const db = await getDb()
+    const isCreditCard = args.type === 'credit_card'
     const [created] = await db.insert(accounts).values({
       userId,
       name: args.name,
       type: args.type,
       institution: args.institution ?? null,
       lastFour: args.lastFour ?? null,
+      currentBalance: args.currentBalance ?? null,
+      balanceAsOfDate: args.balanceAsOfDate ?? null,
+      creditLimit: isCreditCard ? (args.creditLimit ?? null) : null,
+      apr: isCreditCard ? (args.apr ?? null) : null,
     }).returning()
     return { content: [{ type: 'text', text: JSON.stringify(created, null, 2) }] }
   })

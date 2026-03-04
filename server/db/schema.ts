@@ -18,6 +18,10 @@ export const accounts = pgTable('accounts', {
   institution: text('institution'),
   lastFour: text('last_four'),
   color: text('color').default('#6366f1'),
+  currentBalance: doublePrecision('current_balance'),
+  balanceAsOfDate: text('balance_as_of_date'),
+  creditLimit: doublePrecision('credit_limit'),
+  apr: doublePrecision('apr'),
   createdAt: timestamp('created_at').default(sql`now()`),
 }, (table) => ({
   userIdIdx: index('accounts_user_id_idx').on(table.userId),

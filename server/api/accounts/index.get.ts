@@ -1,6 +1,7 @@
 import { getDb } from '../../db'
 import { accounts, transactions } from '../../db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, gt, sql } from 'drizzle-orm'
+import { computeAccountBalance, type RawAccountRow } from '../../utils/computeBalances'
 
 export default defineEventHandler(async (event) => {
   const db = await getDb()
@@ -14,8 +15,22 @@ export default defineEventHandler(async (event) => {
       institution: accounts.institution,
       lastFour: accounts.lastFour,
       color: accounts.color,
+      currentBalance: accounts.currentBalance,
+      balanceAsOfDate: accounts.balanceAsOfDate,
+      creditLimit: accounts.creditLimit,
+      apr: accounts.apr,
       createdAt: accounts.createdAt,
       transactionCount: sql<number>`count(${transactions.id})`,
+      txSumAfterSnapshot: sql<number | null>`
+        sum(
+          case
+            when ${accounts.balanceAsOfDate} is not null
+              and ${transactions.transactionDate} > ${accounts.balanceAsOfDate}
+            then ${transactions.amount}
+            else null
+          end
+        )
+      `,
     })
     .from(accounts)
     .leftJoin(transactions, eq(transactions.accountId, accounts.id))
@@ -23,5 +38,5 @@ export default defineEventHandler(async (event) => {
     .groupBy(accounts.id)
     .orderBy(accounts.name)
 
-  return results
+  return results.map(row => computeAccountBalance(row as RawAccountRow))
 })
