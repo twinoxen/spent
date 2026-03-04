@@ -5,6 +5,7 @@ import { generateFingerprint } from '../utils/fingerprint'
 import { autoCategorizeMerchant } from '../utils/categorizer'
 import { detectStrategy } from '../utils/import-strategies'
 import { parsePdfStatement } from '../utils/import-strategies/pdf'
+import { parseCsvWithLLM } from '../utils/import-strategies/llm-csv'
 import type { NormalizedTransaction } from '../utils/import-strategies/types'
 import { createCategorizerStrategy, type CategorizationInput } from '../utils/llmCategorizer'
 
@@ -74,8 +75,13 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
     } else {
       const csvContent = fileData.data.toString('utf-8')
       const strategy = detectStrategy(filename, csvContent)
-      records = strategy.parse(csvContent)
-      sourceType = strategy.name
+      if (strategy) {
+        records = strategy.parse(csvContent)
+        sourceType = strategy.name
+      } else {
+        records = await parseCsvWithLLM(csvContent, config.openaiApiKey)
+        sourceType = 'llm_csv'
+      }
     }
 
     const allCategories = await db
