@@ -147,12 +147,36 @@
 
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Institution</label>
-            <input
-              v-model="form.institution"
-              type="text"
-              placeholder="e.g. Apple, Chase, Wells Fargo"
-              class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
+            <div class="relative">
+              <input
+                v-model="form.institution"
+                type="text"
+                autocomplete="off"
+                placeholder="e.g. Apple, Chase, Wells Fargo"
+                class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                @focus="institutionDropdownOpen = true"
+                @input="institutionHighlight = 0; institutionDropdownOpen = true"
+                @blur="onInstitutionBlur"
+                @keydown.down.prevent="institutionHighlight = Math.min(institutionHighlight + 1, institutionSuggestions.length - 1)"
+                @keydown.up.prevent="institutionHighlight = Math.max(institutionHighlight - 1, 0)"
+                @keydown.enter.prevent="selectInstitution(institutionSuggestions[institutionHighlight])"
+                @keydown.escape="institutionDropdownOpen = false"
+              />
+              <ul
+                v-if="institutionDropdownOpen && institutionSuggestions.length > 0"
+                class="absolute z-50 mt-1 w-full rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg max-h-48 overflow-auto py-1"
+              >
+                <li
+                  v-for="(suggestion, i) in institutionSuggestions"
+                  :key="suggestion"
+                  class="px-3 py-2 text-sm cursor-pointer text-gray-900 dark:text-white"
+                  :class="i === institutionHighlight ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700'"
+                  @mousedown.prevent="selectInstitution(suggestion)"
+                >
+                  {{ suggestion }}
+                </li>
+              </ul>
+            </div>
           </div>
 
           <div>
@@ -329,6 +353,34 @@ function utilizationBarClass(utilization: number | null | undefined): string {
 const loading = ref(true)
 const accounts = ref<any[]>([])
 
+const knownInstitutions = ref<string[]>([])
+const institutionDropdownOpen = ref(false)
+const institutionHighlight = ref(0)
+
+const institutionSuggestions = computed(() => {
+  const q = form.value.institution.trim().toLowerCase()
+  if (!q) return knownInstitutions.value
+  return knownInstitutions.value.filter(i => i.toLowerCase().includes(q))
+})
+
+function selectInstitution(name: string | undefined) {
+  if (!name) return
+  form.value.institution = name
+  institutionDropdownOpen.value = false
+}
+
+function onInstitutionBlur() {
+  setTimeout(() => { institutionDropdownOpen.value = false }, 150)
+}
+
+async function loadInstitutions() {
+  try {
+    knownInstitutions.value = await $fetch<string[]>('/api/accounts/institutions')
+  } catch {
+    // non-critical, swallow
+  }
+}
+
 const modalOpen = ref(false)
 const editingAccount = ref<any>(null)
 const saving = ref(false)
@@ -368,6 +420,8 @@ async function loadAccounts() {
 function openCreate() {
   editingAccount.value = null
   form.value = { name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0], currentBalance: '', balanceAsOfDate: today(), creditLimit: '', apr: '' }
+  institutionDropdownOpen.value = false
+  loadInstitutions()
   modalOpen.value = true
 }
 
@@ -384,6 +438,8 @@ function openEdit(account: any) {
     creditLimit: account.creditLimit ?? '',
     apr: account.apr ?? '',
   }
+  institutionDropdownOpen.value = false
+  loadInstitutions()
   modalOpen.value = true
 }
 
@@ -411,6 +467,7 @@ async function saveAccount() {
 
     modalOpen.value = false
     await loadAccounts()
+    await loadInstitutions()
   } catch (error) {
     console.error('Failed to save account:', error)
   } finally {
@@ -438,5 +495,8 @@ async function deleteAccount() {
   }
 }
 
-onMounted(loadAccounts)
+onMounted(() => {
+  loadAccounts()
+  loadInstitutions()
+})
 </script>
