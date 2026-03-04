@@ -38,6 +38,8 @@
         :uncategorized-count="uncategorizedCount"
         :date-range-label="dateRangeLabel"
         :avg-monthly="avgMonthly"
+        @select-spend="goToAmountSign('debit')"
+        @select-income="goToAmountSign('credit')"
       />
 
       <DashboardSpendByCategory
@@ -241,6 +243,14 @@ function navigateToMonth(month: string) {
 
 function goToCategory(categoryId: number | null) {
   if (categoryId) navigateTo(`/transactions?categoryId=${categoryId}`)
+}
+
+function goToAmountSign(amountSign: 'debit' | 'credit') {
+  const params = new URLSearchParams({ amountSign })
+  const { startDate, endDate } = dateRangeParams.value
+  if (startDate) params.set('startDate', startDate)
+  if (endDate) params.set('endDate', endDate)
+  navigateTo(`/transactions?${params.toString()}`)
 }
 
 function goToMerchant(merchant: any) {
