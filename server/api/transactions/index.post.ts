@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
   const {
     accountId,
     transactionDate, // expects YYYY-MM-DD from client
+    clearingDate,
     description,
     type,
     amount,
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
     merchantName,
     purchasedBy,
     notes,
+    isPending,
   } = body
 
   if (!accountId || !transactionDate || !description || !type || amount == null) {
@@ -99,6 +101,7 @@ export default defineEventHandler(async (event) => {
   const [created] = await db.insert(transactions).values({
     accountId: Number(accountId),
     transactionDate: String(transactionDate),
+    clearingDate: clearingDate?.trim() || null,
     description: String(description),
     type: String(type),
     amount: signedAmount,
@@ -106,6 +109,7 @@ export default defineEventHandler(async (event) => {
     categoryId: categoryId ? Number(categoryId) : null,
     purchasedBy: purchasedBy?.trim() || null,
     notes: notes?.trim() || null,
+    isPending: Boolean(isPending),
     fingerprint,
     sourceFile: 'manual',
   }).returning()

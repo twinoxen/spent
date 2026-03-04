@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 
 interface UpdateTransactionBody {
   transactionDate?: string
+  clearingDate?: string | null
   amount?: number
   type?: string
   description?: string
@@ -12,6 +13,7 @@ interface UpdateTransactionBody {
   purchasedBy?: string | null
   notes?: string | null
   tags?: string[]
+  isPending?: boolean
 }
 
 export default defineEventHandler(async (event) => {
@@ -28,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<UpdateTransactionBody>(event)
 
-  const allowedFields = ['transactionDate', 'amount', 'type', 'description', 'merchantId', 'categoryId', 'purchasedBy', 'notes', 'tags']
+  const allowedFields = ['transactionDate', 'clearingDate', 'amount', 'type', 'description', 'merchantId', 'categoryId', 'purchasedBy', 'notes', 'tags', 'isPending']
   const hasUpdate = allowedFields.some(f => (body as any)[f] !== undefined)
 
   if (!hasUpdate) {
@@ -62,6 +64,7 @@ export default defineEventHandler(async (event) => {
   const updates: Partial<typeof transactions.$inferInsert> = {}
 
   if (body.transactionDate !== undefined) updates.transactionDate = body.transactionDate
+  if (body.clearingDate !== undefined) updates.clearingDate = body.clearingDate
   if (body.amount !== undefined) updates.amount = body.amount
   if (body.type !== undefined) updates.type = body.type
   if (body.description !== undefined) updates.description = body.description
@@ -70,6 +73,7 @@ export default defineEventHandler(async (event) => {
   if (body.purchasedBy !== undefined) updates.purchasedBy = body.purchasedBy
   if (body.notes !== undefined) updates.notes = body.notes
   if (body.tags !== undefined) updates.tags = body.tags as any
+  if (body.isPending !== undefined) updates.isPending = body.isPending
 
   const [updated] = await db
     .update(transactions)

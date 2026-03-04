@@ -16,7 +16,7 @@
           <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Date <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Purchase Date <span class="text-red-500">*</span></label>
                 <input
                   v-model="newTx.transactionDate"
                   type="date"
@@ -29,13 +29,41 @@
                   v-model="newTx.type"
                   class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="Purchase">Purchase</option>
-                  <option value="Installment">Installment</option>
-                  <option value="Fee">Fee</option>
-                  <option value="Payment">Payment (income)</option>
-                  <option value="Credit">Credit / Refund</option>
-                  <option value="Adjustment">Adjustment (income)</option>
+                  <optgroup label="Expenses (Debit)">
+                    <option value="Purchase">Purchase</option>
+                    <option value="Installment">Installment / Recurring</option>
+                    <option value="Fee">Bank Fee</option>
+                  </optgroup>
+                  <optgroup label="Income (Credit)">
+                    <option value="Payment">Payment Received</option>
+                    <option value="Credit">Refund / Credit</option>
+                    <option value="Adjustment">Adjustment</option>
+                  </optgroup>
                 </select>
+              </div>
+            </div>
+
+            <!-- Pending + Clearing Date -->
+            <div class="grid grid-cols-2 gap-4 items-end">
+              <div class="flex items-center gap-2.5 h-full pt-1">
+                <input
+                  id="newTxIsPending"
+                  v-model="newTx.isPending"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label for="newTxIsPending" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                  Pending (not yet cleared)
+                </label>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Clearing Date</label>
+                <input
+                  v-model="newTx.clearingDate"
+                  type="date"
+                  :disabled="newTx.isPending"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-40"
+                />
               </div>
             </div>
 
@@ -179,7 +207,7 @@
             <!-- Date + Type -->
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Date</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Purchase Date</label>
                 <input
                   v-model="editForm.transactionDate"
                   type="date"
@@ -192,14 +220,44 @@
                   v-model="editForm.type"
                   class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="Purchase">Purchase</option>
-                  <option value="Installment">Installment</option>
-                  <option value="Fee">Fee</option>
-                  <option value="Payment">Payment (income)</option>
-                  <option value="Credit">Credit / Refund</option>
-                  <option value="Adjustment">Adjustment (income)</option>
-                  <option value="Transfer">Transfer</option>
+                  <optgroup label="Expenses (Debit)">
+                    <option value="Purchase">Purchase</option>
+                    <option value="Installment">Installment / Recurring</option>
+                    <option value="Fee">Bank Fee</option>
+                  </optgroup>
+                  <optgroup label="Income (Credit)">
+                    <option value="Payment">Payment Received</option>
+                    <option value="Credit">Refund / Credit</option>
+                    <option value="Adjustment">Adjustment</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="Transfer">Transfer</option>
+                  </optgroup>
                 </select>
+              </div>
+            </div>
+
+            <!-- Pending + Clearing Date -->
+            <div class="grid grid-cols-2 gap-4 items-end">
+              <div class="flex items-center gap-2.5 h-full pt-1">
+                <input
+                  id="editFormIsPending"
+                  v-model="editForm.isPending"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label for="editFormIsPending" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                  Pending (not yet cleared)
+                </label>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Clearing Date</label>
+                <input
+                  v-model="editForm.clearingDate"
+                  type="date"
+                  :disabled="editForm.isPending"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-40"
+                />
               </div>
             </div>
 
@@ -568,6 +626,12 @@
               </td>
               <td class="px-6 py-3 text-sm text-gray-900 dark:text-gray-100 max-w-[200px]">
                 <span class="block truncate" :title="transaction.description">{{ transaction.description }}</span>
+                <span
+                  v-if="transaction.isPending"
+                  class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                >
+                  Pending
+                </span>
               </td>
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                 {{ transaction.merchant?.name || '—' }}
@@ -669,6 +733,7 @@ const allMerchants = ref<Array<{ id: number, normalizedName: string, rawNames: s
 function defaultEditForm() {
   return {
     transactionDate: '',
+    clearingDate: '' as string,
     type: '',
     description: '',
     amount: 0 as number,
@@ -678,6 +743,7 @@ function defaultEditForm() {
     categoryId: '' as string,
     purchasedBy: '',
     notes: '',
+    isPending: false,
   }
 }
 
@@ -691,6 +757,7 @@ const editOriginal = ref({
 function defaultNewTx() {
   return {
     transactionDate: new Date().toISOString().split('T')[0],
+    clearingDate: '' as string,
     description: '',
     type: 'Purchase',
     amount: null as number | null,
@@ -699,6 +766,7 @@ function defaultNewTx() {
     purchasedBy: '',
     categoryId: '' as string,
     notes: '',
+    isPending: false,
   }
 }
 
@@ -724,6 +792,7 @@ async function submitTransaction() {
       body: {
         accountId: newTx.value.accountId,
         transactionDate: newTx.value.transactionDate,
+        clearingDate: (!newTx.value.isPending && newTx.value.clearingDate) ? newTx.value.clearingDate : undefined,
         description: newTx.value.description,
         type: newTx.value.type,
         amount: Number(newTx.value.amount),
@@ -731,6 +800,7 @@ async function submitTransaction() {
         purchasedBy: newTx.value.purchasedBy || undefined,
         categoryId: newTx.value.categoryId ? Number(newTx.value.categoryId) : undefined,
         notes: newTx.value.notes || undefined,
+        isPending: newTx.value.isPending,
       },
     })
     showAddModal.value = false
@@ -886,6 +956,7 @@ function openEditModal(tx: any) {
 
   editForm.value = {
     transactionDate: tx.transactionDate ?? '',
+    clearingDate: tx.clearingDate ?? '',
     type: tx.type ?? 'Purchase',
     description: tx.description ?? '',
     amount: tx.amount ?? 0,
@@ -895,6 +966,7 @@ function openEditModal(tx: any) {
     categoryId: tx.category?.id ? String(tx.category.id) : '',
     purchasedBy: tx.purchasedBy ?? '',
     notes: tx.notes ?? '',
+    isPending: tx.isPending ?? false,
   }
 
   editOriginal.value = {
@@ -1020,6 +1092,11 @@ async function saveEdit() {
       patch.purchasedBy = editForm.value.purchasedBy || null
     if ((editForm.value.notes || '') !== (orig.notes || ''))
       patch.notes = editForm.value.notes || null
+    if (editForm.value.isPending !== (orig.isPending ?? false))
+      patch.isPending = editForm.value.isPending
+    const newClearingDate = (!editForm.value.isPending && editForm.value.clearingDate) ? editForm.value.clearingDate : null
+    if (newClearingDate !== (orig.clearingDate ?? null))
+      patch.clearingDate = newClearingDate
 
     if (Object.keys(patch).length > 0) {
       await $fetch(`/api/transactions/${editingTransaction.value.id}`, {
