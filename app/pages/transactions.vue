@@ -557,8 +557,10 @@ async function loadTransactions() {
 async function loadCategories() {
   try {
     const data = await $fetch('/api/categories')
-    allCategories.value = data.categories
-    categoryTree.value = data.tree
+    // Exclude the seeded "Uncategorized" category — dropdowns already have a
+    // hardcoded blank option for "no category", so showing it twice is confusing.
+    allCategories.value = data.categories.filter((c: any) => c.name.toLowerCase() !== 'uncategorized')
+    categoryTree.value = data.tree.filter((c: any) => c.name.toLowerCase() !== 'uncategorized')
   } catch (error) {
     console.error('Failed to load categories:', error)
   }
