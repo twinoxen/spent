@@ -6,10 +6,13 @@ import { users } from '../db/schema'
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
 
-  // Skip non-API routes and public auth/oauth endpoints
+  // Skip non-API routes, public auth endpoints (login/register/logout), and OAuth endpoints.
+  // Authenticated /api/auth/* endpoints (me, mcp-token) must NOT be skipped so that
+  // event.context.user is populated before their handlers run.
+  const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/logout']
   if (
     !path.startsWith('/api/') ||
-    path.startsWith('/api/auth/') ||
+    publicPaths.some(p => path.startsWith(p)) ||
     path.startsWith('/api/oauth/')
   ) {
     return
