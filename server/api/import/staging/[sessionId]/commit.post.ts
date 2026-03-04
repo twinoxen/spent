@@ -51,16 +51,21 @@ export default defineEventHandler(async (event) => {
 
   for (const row of selected) {
     try {
-      // Re-check for duplicates against committed transactions at commit time
-      const existing = await db
-        .select({ id: transactions.id })
-        .from(transactions)
-        .where(eq(transactions.fingerprint, row.fingerprint))
-        .limit(1)
+      // Race-condition guard: if a row wasn't flagged as a duplicate at staging time,
+      // check whether a concurrent session committed the same fingerprint in the meantime.
+      // We skip the check for rows the user explicitly opted into (isDuplicate = true)
+      // so their decision is always honoured.
+      if (!row.isDuplicate) {
+        const existing = await db
+          .select({ id: transactions.id })
+          .from(transactions)
+          .where(eq(transactions.fingerprint, row.fingerprint))
+          .limit(1)
 
-      if (existing.length > 0) {
-        skipped++
-        continue
+        if (existing.length > 0) {
+          skipped++
+          continue
+        }
       }
 
       // Find or create merchant (scoped to user)

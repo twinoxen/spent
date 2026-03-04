@@ -15,15 +15,15 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Import Complete</h1>
       </div>
 
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid gap-4" :class="commitResult.skipped > 0 ? 'grid-cols-3' : 'grid-cols-2'">
         <div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-100 dark:border-emerald-900/30">
           <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">Imported</p>
           <p class="text-3xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{{ commitResult.imported }}</p>
         </div>
-        <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-100 dark:border-amber-900/30">
+        <div v-if="commitResult.skipped > 0" class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-100 dark:border-amber-900/30">
           <p class="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Skipped</p>
           <p class="text-3xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{{ commitResult.skipped }}</p>
-          <p class="text-xs text-amber-500/70 dark:text-amber-500/60 mt-0.5">duplicates</p>
+          <p class="text-xs text-amber-500/70 dark:text-amber-500/60 mt-0.5">already imported</p>
         </div>
         <div class="p-4 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-100 dark:border-red-900/30">
           <p class="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400 mb-1">Errors</p>
@@ -108,7 +108,7 @@
           <div class="flex items-center gap-3 text-sm text-gray-400 dark:text-gray-500">
             <span v-if="duplicateCount > 0" class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-              {{ duplicateCount }} duplicate{{ duplicateCount !== 1 ? 's' : '' }} (deselected)
+              {{ duplicateCount }} potential duplicate{{ duplicateCount !== 1 ? 's' : '' }} — select to import anyway
             </span>
             <span v-if="autoCategorizeResult" class="text-emerald-500 dark:text-emerald-400 font-medium">
               ✓ Categorized {{ autoCategorizeResult.categorized }}/{{ autoCategorizeResult.total }}
@@ -123,8 +123,13 @@
           <div
             v-for="tx in stagingData.transactions"
             :key="tx.id"
-            class="flex items-center gap-3 py-3 px-1 transition-colors"
-            :class="tx.isSelected ? '' : 'opacity-50'"
+            class="flex items-center gap-3 py-3 transition-colors"
+            :class="[
+              tx.isSelected ? '' : 'opacity-50',
+              tx.isDuplicate
+                ? 'bg-amber-400/[.06] dark:bg-amber-400/[.07] border-l-2 border-amber-400 dark:border-amber-500 pl-2 pr-1'
+                : 'px-1',
+            ]"
           >
             <!-- Checkbox -->
             <input
