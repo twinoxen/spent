@@ -29,7 +29,7 @@
       </div>
     </UCard>
 
-    <UCard>
+    <UCard class="cursor-pointer transition-shadow hover:shadow-md" @click="emit('select-uncategorized')">
       <div class="space-y-1">
         <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Uncategorized</p>
         <p class="text-2xl font-bold tabular-nums" :class="uncategorizedCount > 0 ? 'text-amber-500' : 'text-emerald-500'">
@@ -54,5 +54,6 @@ defineProps<{
 const emit = defineEmits<{
   'select-spend': []
   'select-income': []
+  'select-uncategorized': []
 }>()
 </script>

@@ -284,6 +284,20 @@
               <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
             </button>
           </span>
+          <!-- Uncategorized-only chip -->
+          <span
+            v-if="filters.uncategorizedOnly"
+            class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-medium"
+          >
+            <UIcon name="i-heroicons-tag" class="w-3 h-3 flex-shrink-0" />
+            Uncategorized
+            <button
+              class="ml-0.5 p-0.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors"
+              @click="filters.uncategorizedOnly = false; loadTransactions()"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+            </button>
+          </span>
           <!-- Active amount sign chip -->
           <span
             v-if="filters.amountSign"
@@ -514,6 +528,7 @@ const filters = ref({
   merchantId: route.query.merchantId ? Number(route.query.merchantId) : null as number | null,
   merchantName: route.query.merchantName ? String(route.query.merchantName) : null as string | null,
   amountSign: (route.query.amountSign === 'debit' || route.query.amountSign === 'credit') ? route.query.amountSign as 'debit' | 'credit' : null as 'debit' | 'credit' | null,
+  uncategorizedOnly: route.query.uncategorizedOnly === 'true',
   purchasedBy: null as string | null,
   type: null as string | null,
   accountId: route.query.accountId ? Number(route.query.accountId) : null as number | null,
@@ -537,6 +552,7 @@ async function loadTransactions() {
     if (filters.value.categoryId) params.categoryId = Number(filters.value.categoryId)
     if (filters.value.merchantId) params.merchantId = filters.value.merchantId
     if (filters.value.amountSign) params.amountSign = filters.value.amountSign
+    if (filters.value.uncategorizedOnly) params.uncategorizedOnly = 'true'
     if (filters.value.purchasedBy) params.purchasedBy = filters.value.purchasedBy
     if (filters.value.type) params.type = filters.value.type
     if (filters.value.accountId) params.accountId = filters.value.accountId
@@ -609,7 +625,7 @@ function formatDate(dateStr: string): string {
 }
 
 function clearFilters() {
-  filters.value = { search: null, categoryId: null, merchantId: null, merchantName: null, amountSign: null, purchasedBy: null, type: null, accountId: null, date: null, startDate: null, endDate: null }
+  filters.value = { search: null, categoryId: null, merchantId: null, merchantName: null, amountSign: null, uncategorizedOnly: false, purchasedBy: null, type: null, accountId: null, date: null, startDate: null, endDate: null }
   offset.value = 0
   loadTransactions()
 }
@@ -646,6 +662,7 @@ function exportCsv() {
   if (filters.value.categoryId) params.set('categoryId', String(Number(filters.value.categoryId)))
   if (filters.value.merchantId) params.set('merchantId', String(filters.value.merchantId))
   if (filters.value.amountSign) params.set('amountSign', filters.value.amountSign)
+  if (filters.value.uncategorizedOnly) params.set('uncategorizedOnly', 'true')
   if (filters.value.purchasedBy) params.set('purchasedBy', filters.value.purchasedBy)
   if (filters.value.type) params.set('type', filters.value.type)
   if (filters.value.accountId) params.set('accountId', String(filters.value.accountId))
