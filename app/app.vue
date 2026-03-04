@@ -33,6 +33,14 @@
               <div class="ml-2 pl-2 border-l border-gray-200 dark:border-gray-700 flex items-center gap-2">
                 <span class="text-sm text-gray-500 dark:text-gray-400 hidden md:inline">{{ user?.email }}</span>
                 <UButton
+                  icon="i-heroicons-cog-6-tooth"
+                  variant="ghost"
+                  color="neutral"
+                  size="sm"
+                  title="Settings"
+                  to="/settings"
+                />
+                <UButton
                   icon="i-heroicons-arrow-right-on-rectangle"
                   variant="ghost"
                   color="neutral"
@@ -98,8 +106,18 @@
                 </span>
               </div>
             </template>
-            <div class="mt-1 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <div class="mt-1 pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1">
               <p class="text-xs text-gray-400 dark:text-gray-500 px-2 pb-1">{{ user?.email }}</p>
+              <UButton
+                icon="i-heroicons-cog-6-tooth"
+                label="Settings"
+                variant="ghost"
+                color="neutral"
+                size="sm"
+                class="w-full justify-start"
+                to="/settings"
+                @click="mobileMenuOpen = false"
+              />
             </div>
           </div>
         </Transition>
