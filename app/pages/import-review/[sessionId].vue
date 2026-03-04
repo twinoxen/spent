@@ -15,12 +15,12 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Import Complete</h1>
       </div>
 
-      <div class="grid gap-4" :class="commitResult.skipped > 0 ? 'grid-cols-3' : 'grid-cols-2'">
+      <div class="grid grid-cols-3 gap-4">
         <div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-100 dark:border-emerald-900/30">
           <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">Imported</p>
           <p class="text-3xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{{ commitResult.imported }}</p>
         </div>
-        <div v-if="commitResult.skipped > 0" class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-100 dark:border-amber-900/30">
+        <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-100 dark:border-amber-900/30">
           <p class="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Skipped</p>
           <p class="text-3xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{{ commitResult.skipped }}</p>
           <p class="text-xs text-amber-500/70 dark:text-amber-500/60 mt-0.5">already imported</p>
