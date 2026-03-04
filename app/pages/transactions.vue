@@ -604,13 +604,69 @@
         <table class="w-full min-w-[700px]">
           <thead>
             <tr class="border-b border-gray-200 dark:border-gray-700">
-              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Date</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Description</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Merchant</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Category</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Purchased By</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Account</th>
-              <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Amount</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                <button class="inline-flex items-center gap-1 group/sort" :class="sortBy === 'transactionDate' ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="setSort('transactionDate')">
+                  Date
+                  <span class="w-3 shrink-0 text-[10px] leading-none">
+                    <template v-if="sortBy === 'transactionDate'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</template>
+                    <template v-else><span class="opacity-0 group-hover/sort:opacity-40">↕</span></template>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                <button class="inline-flex items-center gap-1 group/sort" :class="sortBy === 'description' ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="setSort('description')">
+                  Description
+                  <span class="w-3 shrink-0 text-[10px] leading-none">
+                    <template v-if="sortBy === 'description'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</template>
+                    <template v-else><span class="opacity-0 group-hover/sort:opacity-40">↕</span></template>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                <button class="inline-flex items-center gap-1 group/sort" :class="sortBy === 'merchant' ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="setSort('merchant')">
+                  Merchant
+                  <span class="w-3 shrink-0 text-[10px] leading-none">
+                    <template v-if="sortBy === 'merchant'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</template>
+                    <template v-else><span class="opacity-0 group-hover/sort:opacity-40">↕</span></template>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                <button class="inline-flex items-center gap-1 group/sort" :class="sortBy === 'category' ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="setSort('category')">
+                  Category
+                  <span class="w-3 shrink-0 text-[10px] leading-none">
+                    <template v-if="sortBy === 'category'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</template>
+                    <template v-else><span class="opacity-0 group-hover/sort:opacity-40">↕</span></template>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                <button class="inline-flex items-center gap-1 group/sort" :class="sortBy === 'purchasedBy' ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="setSort('purchasedBy')">
+                  Purchased By
+                  <span class="w-3 shrink-0 text-[10px] leading-none">
+                    <template v-if="sortBy === 'purchasedBy'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</template>
+                    <template v-else><span class="opacity-0 group-hover/sort:opacity-40">↕</span></template>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                <button class="inline-flex items-center gap-1 group/sort" :class="sortBy === 'account' ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="setSort('account')">
+                  Account
+                  <span class="w-3 shrink-0 text-[10px] leading-none">
+                    <template v-if="sortBy === 'account'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</template>
+                    <template v-else><span class="opacity-0 group-hover/sort:opacity-40">↕</span></template>
+                  </span>
+                </button>
+              </th>
+              <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">
+                <button class="inline-flex items-center justify-end gap-1 w-full group/sort" :class="sortBy === 'amount' ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="setSort('amount')">
+                  <span class="w-3 shrink-0 text-[10px] leading-none">
+                    <template v-if="sortBy === 'amount'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</template>
+                    <template v-else><span class="opacity-0 group-hover/sort:opacity-40">↕</span></template>
+                  </span>
+                  Amount
+                </button>
+              </th>
               <th class="px-3 py-3" />
             </tr>
           </thead>
@@ -709,6 +765,28 @@ const categoryTree = ref<any[]>([])
 const total = ref(0)
 const limit = ref(50)
 const offset = ref(0)
+
+type SortColumn = 'transactionDate' | 'description' | 'amount' | 'purchasedBy' | 'merchant' | 'category' | 'account'
+type SortOrder = 'asc' | 'desc'
+const sortBy = ref<SortColumn | null>(null)
+const sortOrder = ref<SortOrder>('asc')
+
+function setSort(column: SortColumn) {
+  if (sortBy.value === column) {
+    if (sortOrder.value === 'asc') {
+      sortOrder.value = 'desc'
+    } else {
+      // Third click: clear sort (back to default)
+      sortBy.value = null
+      sortOrder.value = 'asc'
+    }
+  } else {
+    sortBy.value = column
+    sortOrder.value = 'asc'
+  }
+  offset.value = 0
+  loadTransactions()
+}
 
 // Add Transaction modal
 const showAddModal = ref(false)
@@ -899,6 +977,7 @@ async function loadTransactions() {
     if (filters.value.date) params.date = filters.value.date
     if (filters.value.startDate) params.startDate = filters.value.startDate
     if (filters.value.endDate) params.endDate = filters.value.endDate
+    if (sortBy.value) { params.sortBy = sortBy.value; params.sortOrder = sortOrder.value }
 
     const data = await $fetch('/api/transactions', { params })
     transactions.value = data.transactions
