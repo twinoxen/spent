@@ -1,13 +1,13 @@
 import { jwtVerify } from 'jose'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { users } from '../db/schema'
+import { apiTokens } from '../db/schema'
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
 
   // Skip non-API routes, public auth endpoints (login/register/logout), and OAuth endpoints.
-  // Authenticated /api/auth/* endpoints (me, mcp-token) must NOT be skipped so that
+  // Authenticated /api/auth/* endpoints (me, tokens) must NOT be skipped so that
   // event.context.user is populated before their handlers run.
   const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/logout']
   if (
@@ -41,24 +41,21 @@ export default defineEventHandler(async (event) => {
   try {
     const config = useRuntimeConfig()
     const secret = new TextEncoder().encode(config.jwtSecret)
-    const baseUrl = config.public.appUrl || 'https://spent-iota.vercel.app'
 
-    // MCP tokens have an audience claim — verify it
-    const verifyOptions = bearerToken
-      ? { audience: `${baseUrl}/api/mcp` }
-      : undefined
+    // Verify the token without requiring an audience claim.
+    // PATs (personal access tokens) carry a jti and have no audience.
+    // OAuth-issued tokens carry an audience claim which is simply ignored here —
+    // they still authenticate the user for all API routes.
+    const { payload } = await jwtVerify(token, secret)
 
-    const { payload } = await jwtVerify(token, secret, verifyOptions)
-
-    // PAT tokens carry a jti claim — verify it's still the current active token
-    // (OAuth-issued tokens from the authorization code flow have no jti, so skip this check)
+    // PATs carry a jti claim — verify it exists in the apiTokens table (not revoked)
     if (bearerToken && payload.jti) {
       const db = await getDb()
       const [row] = await db
-        .select({ mcpTokenJti: users.mcpTokenJti })
-        .from(users)
-        .where(eq(users.id, payload.userId as number))
-      if (!row?.mcpTokenJti || row.mcpTokenJti !== payload.jti) {
+        .select({ id: apiTokens.id })
+        .from(apiTokens)
+        .where(eq(apiTokens.jti, payload.jti))
+      if (!row) {
         throw createError({ statusCode: 401, message: 'Token has been revoked' })
       }
     }

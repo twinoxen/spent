@@ -6,8 +6,6 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   createdAt: timestamp('created_at').default(sql`now()`),
-  mcpTokenJti: text('mcp_token_jti'),
-  mcpTokenIssuedAt: timestamp('mcp_token_issued_at'),
 }, (table) => ({
   emailIdx: index('users_email_idx').on(table.email),
 }))
@@ -126,6 +124,17 @@ export const oauthCodes = pgTable('oauth_codes', {
   used: boolean('used').notNull().default(false),
 }, (table) => ({
   codeIdx: index('oauth_codes_code_idx').on(table.code),
+}))
+
+export const apiTokens = pgTable('api_tokens', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  jti: text('jti').notNull().unique(),
+  createdAt: timestamp('created_at').default(sql`now()`),
+}, (table) => ({
+  userIdIdx: index('api_tokens_user_id_idx').on(table.userId),
+  jtiIdx: index('api_tokens_jti_idx').on(table.jti),
 }))
 
 export const stagingTransactions = pgTable('staging_transactions', {
