@@ -227,7 +227,7 @@
           <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Spending Over Time</p>
         </template>
         <div class="h-56">
-          <SpendOverTime v-if="stats.spendOverTime.length > 0" :data="stats.spendOverTime" />
+          <SpendOverTime v-if="stats.spendOverTime.length > 0" :data="stats.spendOverTime" @month-click="navigateToMonth" />
           <div v-else class="flex items-center justify-center h-full text-sm text-gray-400 dark:text-gray-500">
             No data for this period
           </div>
@@ -424,6 +424,15 @@ function toggleAccount(accountId: number) {
     selectedAccountIds.value = selectedAccountIds.value.filter(id => id !== accountId)
   }
   loadStats()
+}
+
+function navigateToMonth(month: string) {
+  const [year, monthNum] = month.split('-')
+  if (!year || !monthNum) return
+  const start = `${year}-${monthNum}-01`
+  const lastDay = new Date(parseInt(year), parseInt(monthNum), 0).getDate()
+  const end = `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`
+  navigateTo(`/transactions?startDate=${start}&endDate=${end}`)
 }
 
 function goToCategory(categoryId: number | null) {

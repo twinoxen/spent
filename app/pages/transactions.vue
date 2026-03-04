@@ -256,6 +256,20 @@
               <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
             </button>
           </span>
+          <!-- Active date range chip from chart click -->
+          <span
+            v-if="filters.startDate && filters.endDate"
+            class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-medium"
+          >
+            <UIcon name="i-heroicons-calendar-days" class="w-3 h-3 flex-shrink-0" />
+            {{ formatDateDisplay(filters.startDate) }} – {{ formatDateDisplay(filters.endDate) }}
+            <button
+              class="ml-0.5 p-0.5 rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors"
+              @click="filters.startDate = null; filters.endDate = null; loadTransactions()"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+            </button>
+          </span>
         </div>
         <div class="flex items-center gap-2">
           <UButton label="Export CSV" color="neutral" variant="outline" size="sm" icon="i-heroicons-arrow-down-tray" @click="exportCsv" />
@@ -466,6 +480,8 @@ const filters = ref({
   type: null as string | null,
   accountId: route.query.accountId ? Number(route.query.accountId) : null as number | null,
   date: route.query.date ? String(route.query.date) : null as string | null,
+  startDate: route.query.startDate ? String(route.query.startDate) : null as string | null,
+  endDate: route.query.endDate ? String(route.query.endDate) : null as string | null,
 })
 
 const uniquePurchasers = ref<string[]>([])
@@ -485,6 +501,8 @@ async function loadTransactions() {
     if (filters.value.type) params.type = filters.value.type
     if (filters.value.accountId) params.accountId = filters.value.accountId
     if (filters.value.date) params.date = filters.value.date
+    if (filters.value.startDate) params.startDate = filters.value.startDate
+    if (filters.value.endDate) params.endDate = filters.value.endDate
 
     const data = await $fetch('/api/transactions', { params })
     transactions.value = data.transactions
@@ -549,7 +567,7 @@ function formatDate(dateStr: string): string {
 }
 
 function clearFilters() {
-  filters.value = { search: null, categoryId: null, purchasedBy: null, type: null, accountId: null, date: null }
+  filters.value = { search: null, categoryId: null, purchasedBy: null, type: null, accountId: null, date: null, startDate: null, endDate: null }
   offset.value = 0
   loadTransactions()
 }
@@ -588,6 +606,8 @@ function exportCsv() {
   if (filters.value.type) params.set('type', filters.value.type)
   if (filters.value.accountId) params.set('accountId', String(filters.value.accountId))
   if (filters.value.date) params.set('date', filters.value.date)
+  if (filters.value.startDate) params.set('startDate', filters.value.startDate)
+  if (filters.value.endDate) params.set('endDate', filters.value.endDate)
   window.open(`/api/export/transactions?${params.toString()}`, '_self')
 }
 
