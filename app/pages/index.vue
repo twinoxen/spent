@@ -40,6 +40,7 @@
         :avg-monthly="avgMonthly"
         @select-spend="goToAmountSign('debit')"
         @select-income="goToAmountSign('credit')"
+        @select-uncategorized="navigateTo('/transactions?uncategorizedOnly=true')"
       />
 
       <DashboardSpendByCategory

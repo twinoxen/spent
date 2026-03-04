@@ -3,7 +3,13 @@ import { transactions, accounts } from '../../db/schema'
 import { and, eq } from 'drizzle-orm'
 
 interface UpdateTransactionBody {
+  transactionDate?: string
+  amount?: number
+  type?: string
+  description?: string
+  merchantId?: number | null
   categoryId?: number | null
+  purchasedBy?: string | null
   notes?: string | null
   tags?: string[]
 }
@@ -22,7 +28,10 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<UpdateTransactionBody>(event)
 
-  if (body.categoryId === undefined && body.notes === undefined && body.tags === undefined) {
+  const allowedFields = ['transactionDate', 'amount', 'type', 'description', 'merchantId', 'categoryId', 'purchasedBy', 'notes', 'tags']
+  const hasUpdate = allowedFields.some(f => (body as any)[f] !== undefined)
+
+  if (!hasUpdate) {
     throw createError({
       statusCode: 400,
       message: 'No fields to update',
@@ -50,20 +59,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: 'Access denied' })
   }
 
-  // Build update object
   const updates: Partial<typeof transactions.$inferInsert> = {}
 
-  if (body.categoryId !== undefined) {
-    updates.categoryId = body.categoryId
-  }
-
-  if (body.notes !== undefined) {
-    updates.notes = body.notes
-  }
-
-  if (body.tags !== undefined) {
-    updates.tags = body.tags as any
-  }
+  if (body.transactionDate !== undefined) updates.transactionDate = body.transactionDate
+  if (body.amount !== undefined) updates.amount = body.amount
+  if (body.type !== undefined) updates.type = body.type
+  if (body.description !== undefined) updates.description = body.description
+  if (body.merchantId !== undefined) updates.merchantId = body.merchantId
+  if (body.categoryId !== undefined) updates.categoryId = body.categoryId
+  if (body.purchasedBy !== undefined) updates.purchasedBy = body.purchasedBy
+  if (body.notes !== undefined) updates.notes = body.notes
+  if (body.tags !== undefined) updates.tags = body.tags as any
 
   const [updated] = await db
     .update(transactions)
