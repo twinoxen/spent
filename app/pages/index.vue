@@ -28,8 +28,16 @@
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
     </div>
 
-    <!-- Dashboard Content -->
-    <div v-else-if="stats" class="space-y-6 transition-opacity duration-200" :class="{ 'opacity-50 pointer-events-none': loading }">
+    <template v-else-if="stats">
+      <!-- Financial Health (not filtered by date range — always shows current position) -->
+      <DashboardFinancialHealth
+        v-if="availableAccounts.length > 0"
+        :accounts="availableAccounts"
+        class="mb-6"
+      />
+
+      <!-- Spending Analysis (filtered by date range) -->
+      <div class="space-y-6 transition-opacity duration-200" :class="{ 'opacity-50 pointer-events-none': loading }">
 
       <DashboardKpiRow
         :total-spend="stats.totalSpend"
@@ -71,6 +79,7 @@
       />
 
     </div>
+    </template>
   </div>
 </template>
 

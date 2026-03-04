@@ -14,6 +14,10 @@ export default defineEventHandler(async (event) => {
   if (body.institution !== undefined) updates.institution = body.institution?.trim() || null
   if (body.lastFour !== undefined) updates.lastFour = body.lastFour?.trim() || null
   if (body.color !== undefined) updates.color = body.color
+  if (body.currentBalance !== undefined) updates.currentBalance = body.currentBalance != null ? Number(body.currentBalance) : null
+  if (body.balanceAsOfDate !== undefined) updates.balanceAsOfDate = body.balanceAsOfDate?.trim() || null
+  if (body.creditLimit !== undefined) updates.creditLimit = body.creditLimit != null ? Number(body.creditLimit) : null
+  if (body.apr !== undefined) updates.apr = body.apr != null ? Number(body.apr) : null
 
   if (Object.keys(updates).length === 0) {
     throw createError({ statusCode: 400, message: 'No fields to update' })

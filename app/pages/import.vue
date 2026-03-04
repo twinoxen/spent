@@ -115,6 +115,61 @@
                       class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
+                  <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                      {{ newAccount.type === 'credit_card' ? 'Balance Owed' : 'Current Balance' }}
+                    </label>
+                    <div class="relative">
+                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                      <input
+                        v-model="newAccount.currentBalance"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        class="w-full pl-6 pr-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Balance As Of</label>
+                    <input
+                      v-model="newAccount.balanceAsOfDate"
+                      type="date"
+                      class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <template v-if="newAccount.type === 'credit_card'">
+                    <div>
+                      <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Credit Limit</label>
+                      <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                        <input
+                          v-model="newAccount.creditLimit"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="5000.00"
+                          class="w-full pl-6 pr-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">APR (%)</label>
+                      <div class="relative">
+                        <input
+                          v-model="newAccount.apr"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          placeholder="24.99"
+                          class="w-full pl-3 pr-6 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
+                      </div>
+                    </div>
+                  </template>
                 </div>
                 <div>
                   <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Color</label>
@@ -252,7 +307,8 @@ const selectedAccountId = ref<number | null>(null)
 
 const showNewAccountForm = ref(false)
 const creatingAccount = ref(false)
-const newAccount = ref({ name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0] })
+function today() { return new Date().toISOString().split('T')[0] }
+const newAccount = ref({ name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0], currentBalance: '' as string | number, balanceAsOfDate: today(), creditLimit: '' as string | number, apr: '' as string | number })
 
 const selectedFile = ref<File | null>(null)
 const dragOver = ref(false)
@@ -279,6 +335,7 @@ async function createAndSelectAccount() {
   if (!newAccount.value.name.trim()) return
   creatingAccount.value = true
   try {
+    const isCreditCard = newAccount.value.type === 'credit_card'
     const created = await $fetch('/api/accounts', {
       method: 'POST',
       body: {
@@ -287,12 +344,16 @@ async function createAndSelectAccount() {
         institution: newAccount.value.institution || null,
         lastFour: newAccount.value.lastFour || null,
         color: newAccount.value.color,
+        currentBalance: newAccount.value.currentBalance !== '' ? Number(newAccount.value.currentBalance) : null,
+        balanceAsOfDate: newAccount.value.balanceAsOfDate || null,
+        creditLimit: isCreditCard && newAccount.value.creditLimit !== '' ? Number(newAccount.value.creditLimit) : null,
+        apr: isCreditCard && newAccount.value.apr !== '' ? Number(newAccount.value.apr) : null,
       },
     }) as any
     await loadAccounts()
     selectedAccountId.value = created.id
     showNewAccountForm.value = false
-    newAccount.value = { name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0] }
+    newAccount.value = { name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0], currentBalance: '', balanceAsOfDate: today(), creditLimit: '', apr: '' }
   } catch (error) {
     console.error('Failed to create account:', error)
   } finally {

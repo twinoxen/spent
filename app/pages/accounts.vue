@@ -38,7 +38,7 @@
 
         <div class="relative">
           <!-- Header -->
-          <div class="flex items-start justify-between mb-8">
+          <div class="flex items-start justify-between mb-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider opacity-75">{{ ACCOUNT_TYPE_LABELS[account.type] ?? account.type }}</p>
               <h3 class="text-xl font-bold mt-0.5">{{ account.name }}</h3>
@@ -66,6 +66,46 @@
             </div>
           </div>
 
+          <!-- Balance Section -->
+          <div v-if="account.adjustedBalance !== null" class="mb-3">
+            <!-- Credit Card: utilization bar -->
+            <template v-if="account.type === 'credit_card'">
+              <div class="flex items-end justify-between mb-1.5">
+                <div>
+                  <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.adjustedBalance) }}</p>
+                  <p class="text-xs opacity-75">owed of {{ formatCurrency(account.creditLimit) }} limit</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm font-semibold tabular-nums">{{ formatPercent(account.utilization) }}</p>
+                  <p class="text-xs opacity-75">utilized</p>
+                </div>
+              </div>
+              <!-- Utilization bar -->
+              <div class="h-1.5 rounded-full bg-white/30 overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all"
+                  :class="utilizationBarClass(account.utilization)"
+                  :style="{ width: `${Math.min((account.utilization ?? 0) * 100, 100)}%` }"
+                />
+              </div>
+              <p v-if="account.apr" class="text-xs opacity-60 mt-1">{{ account.apr }}% APR</p>
+            </template>
+            <!-- Checking/Savings/Debit: simple balance -->
+            <template v-else>
+              <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.adjustedBalance) }}</p>
+              <p class="text-xs opacity-75">available balance</p>
+            </template>
+          </div>
+          <!-- No balance set prompt -->
+          <div v-else class="mb-3">
+            <button
+              class="text-xs opacity-60 hover:opacity-90 underline decoration-dotted transition-opacity"
+              @click="openEdit(account)"
+            >
+              Set balance →
+            </button>
+          </div>
+
           <!-- Footer -->
           <div class="flex items-end justify-between">
             <div v-if="account.lastFour" class="font-mono text-base tracking-widest opacity-90">
@@ -73,8 +113,7 @@
             </div>
             <div v-else class="text-sm opacity-70">No card number</div>
             <div class="text-right">
-              <p class="text-2xl font-bold tabular-nums">{{ account.transactionCount }}</p>
-              <p class="text-xs opacity-75">transaction{{ account.transactionCount !== 1 ? 's' : '' }}</p>
+              <p class="text-sm font-medium tabular-nums opacity-75">{{ account.transactionCount }} txn{{ account.transactionCount !== 1 ? 's' : '' }}</p>
             </div>
           </div>
         </div>
@@ -126,6 +165,72 @@
               class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
             />
           </div>
+
+          <!-- Balance snapshot fields -->
+          <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Balance</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                  {{ form.type === 'credit_card' ? 'Current Balance Owed' : 'Current Balance' }}
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    v-model="form.currentBalance"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    class="w-full pl-7 pr-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Balance As Of</label>
+                <input
+                  v-model="form.balanceAsOfDate"
+                  type="date"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Credit card specific fields -->
+          <template v-if="form.type === 'credit_card'">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Credit Limit</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    v-model="form.creditLimit"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="5000.00"
+                    class="w-full pl-7 pr-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">APR (%)</label>
+                <div class="relative">
+                  <input
+                    v-model="form.apr"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    placeholder="24.99"
+                    class="w-full pl-3 pr-7 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                </div>
+              </div>
+            </div>
+          </template>
 
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Color</label>
@@ -253,6 +358,23 @@ const PRESET_COLORS = [
   '#1e293b', // dark slate
 ]
 
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return '—'
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+}
+
+function formatPercent(value: number | null | undefined): string {
+  if (value == null) return '—'
+  return `${Math.round(value * 100)}%`
+}
+
+function utilizationBarClass(utilization: number | null | undefined): string {
+  if (utilization == null) return 'bg-white/60'
+  if (utilization >= 0.75) return 'bg-red-300'
+  if (utilization >= 0.5) return 'bg-amber-300'
+  return 'bg-white/80'
+}
+
 const loading = ref(true)
 const accounts = ref<any[]>([])
 
@@ -268,12 +390,20 @@ const deleteUserModalOpen = ref(false)
 const deleteUserConfirmText = ref('')
 const deletingUser = ref(false)
 
+function today() {
+  return new Date().toISOString().split('T')[0]
+}
+
 const form = ref({
   name: '',
   type: 'credit_card',
   institution: '',
   lastFour: '',
   color: PRESET_COLORS[0],
+  currentBalance: '' as string | number,
+  balanceAsOfDate: today(),
+  creditLimit: '' as string | number,
+  apr: '' as string | number,
 })
 
 async function loadAccounts() {
@@ -289,7 +419,7 @@ async function loadAccounts() {
 
 function openCreate() {
   editingAccount.value = null
-  form.value = { name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0] }
+  form.value = { name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0], currentBalance: '', balanceAsOfDate: today(), creditLimit: '', apr: '' }
   modalOpen.value = true
 }
 
@@ -301,6 +431,10 @@ function openEdit(account: any) {
     institution: account.institution ?? '',
     lastFour: account.lastFour ?? '',
     color: account.color ?? PRESET_COLORS[0],
+    currentBalance: account.currentBalance ?? '',
+    balanceAsOfDate: account.balanceAsOfDate ?? today(),
+    creditLimit: account.creditLimit ?? '',
+    apr: account.apr ?? '',
   }
   modalOpen.value = true
 }
@@ -308,12 +442,17 @@ function openEdit(account: any) {
 async function saveAccount() {
   saving.value = true
   try {
-    const payload = {
+    const isCreditCard = form.value.type === 'credit_card'
+    const payload: Record<string, unknown> = {
       name: form.value.name,
       type: form.value.type,
       institution: form.value.institution || null,
       lastFour: form.value.lastFour || null,
       color: form.value.color,
+      currentBalance: form.value.currentBalance !== '' ? Number(form.value.currentBalance) : null,
+      balanceAsOfDate: form.value.balanceAsOfDate || null,
+      creditLimit: isCreditCard && form.value.creditLimit !== '' ? Number(form.value.creditLimit) : null,
+      apr: isCreditCard && form.value.apr !== '' ? Number(form.value.apr) : null,
     }
 
     if (editingAccount.value) {
