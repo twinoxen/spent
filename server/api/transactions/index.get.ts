@@ -1,6 +1,6 @@
 import { getDb } from '../../db'
 import { transactions, merchants, categories, accounts } from '../../db/schema'
-import { eq, desc, and, sql, inArray } from 'drizzle-orm'
+import { eq, desc, asc, and, sql, inArray } from 'drizzle-orm'
 import { parseTransactionFilters, buildTransactionWhereClause } from '../../utils/transactionFilters'
 
 export default defineEventHandler(async (event) => {
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(accounts, eq(transactions.accountId, accounts.id))
     .where(whereClause)
-    .orderBy(desc(transactions.transactionDate), desc(transactions.id))
+    .orderBy(desc(transactions.isPending), desc(transactions.transactionDate), desc(transactions.id))
     .limit(limit)
     .offset(offset)
 
