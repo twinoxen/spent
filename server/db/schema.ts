@@ -6,6 +6,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   createdAt: timestamp('created_at').default(sql`now()`),
+  mcpTokenJti: text('mcp_token_jti'),
+  mcpTokenIssuedAt: timestamp('mcp_token_issued_at'),
 }, (table) => ({
   emailIdx: index('users_email_idx').on(table.email),
 }))

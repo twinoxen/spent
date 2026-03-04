@@ -1,4 +1,7 @@
 import { jwtVerify } from 'jose'
+import { eq } from 'drizzle-orm'
+import { getDb } from '../db'
+import { users } from '../db/schema'
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
@@ -43,8 +46,24 @@ export default defineEventHandler(async (event) => {
       : undefined
 
     const { payload } = await jwtVerify(token, secret, verifyOptions)
+
+    // PAT tokens carry a jti claim — verify it's still the current active token
+    // (OAuth-issued tokens from the authorization code flow have no jti, so skip this check)
+    if (bearerToken && payload.jti) {
+      const db = await getDb()
+      const [row] = await db
+        .select({ mcpTokenJti: users.mcpTokenJti })
+        .from(users)
+        .where(eq(users.id, payload.userId as number))
+      if (!row?.mcpTokenJti || row.mcpTokenJti !== payload.jti) {
+        throw createError({ statusCode: 401, message: 'Token has been revoked' })
+      }
+    }
+
     event.context.user = { id: payload.userId as number, email: payload.email as string }
-  } catch {
+  } catch (err: unknown) {
+    // Re-throw H3 errors (e.g. explicit revocation) as-is
+    if (err && typeof err === 'object' && 'statusCode' in err) throw err
     throw createError({ statusCode: 401, message: 'Invalid or expired session' })
   }
 })
