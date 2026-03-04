@@ -1,10 +1,13 @@
 import { getDb } from '../../db'
-import { merchantRules } from '../../db/schema'
+import { merchantRules, transactions, accounts, merchants } from '../../db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
 
 interface CreateMerchantRuleBody {
   pattern: string
   categoryId: number
   priority?: number
+  merchantId?: number
+  applyToExisting?: boolean
 }
 
 export default defineEventHandler(async (event) => {
@@ -33,5 +36,41 @@ export default defineEventHandler(async (event) => {
     priority: body.priority || 100,
   }).returning()
 
-  return newRule
+  let affectedCount = 0
+
+  if (body.applyToExisting && body.merchantId) {
+    // Verify merchant belongs to user
+    const [merchant] = await db
+      .select({ id: merchants.id })
+      .from(merchants)
+      .where(and(eq(merchants.id, body.merchantId), eq(merchants.userId, userId)))
+      .limit(1)
+
+    if (merchant) {
+      // Get all user account IDs to safely scope the transaction update
+      const userAccounts = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.userId, userId))
+
+      const accountIds = userAccounts.map(a => a.id)
+
+      if (accountIds.length > 0) {
+        const result = await db
+          .update(transactions)
+          .set({ categoryId: body.categoryId })
+          .where(
+            and(
+              eq(transactions.merchantId, body.merchantId),
+              inArray(transactions.accountId, accountIds),
+            ),
+          )
+          .returning({ id: transactions.id })
+
+        affectedCount = result.length
+      }
+    }
+  }
+
+  return { rule: newRule, affectedCount }
 })

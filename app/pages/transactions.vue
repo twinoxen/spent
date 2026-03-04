@@ -167,6 +167,214 @@
       </template>
     </UModal>
 
+    <!-- Edit Transaction Modal -->
+    <UModal v-model:open="showEditModal">
+      <template #content>
+        <UCard>
+          <template #header>
+            <p class="text-base font-semibold text-gray-800 dark:text-gray-100">Edit Transaction</p>
+          </template>
+
+          <div class="space-y-4">
+            <!-- Date + Type -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Date</label>
+                <input
+                  v-model="editForm.transactionDate"
+                  type="date"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Type</label>
+                <select
+                  v-model="editForm.type"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="Purchase">Purchase</option>
+                  <option value="Installment">Installment</option>
+                  <option value="Fee">Fee</option>
+                  <option value="Payment">Payment (income)</option>
+                  <option value="Credit">Credit / Refund</option>
+                  <option value="Adjustment">Adjustment (income)</option>
+                  <option value="Transfer">Transfer</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Description -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Description</label>
+              <input
+                v-model="editForm.description"
+                type="text"
+                class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <!-- Amount + Purchased By -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Amount ($)</label>
+                <input
+                  v-model="editForm.amount"
+                  type="number"
+                  step="0.01"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Purchased By</label>
+                <input
+                  v-model="editForm.purchasedBy"
+                  type="text"
+                  list="edit-purchasers-list"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <datalist id="edit-purchasers-list">
+                  <option v-for="person in uniquePurchasers" :key="person" :value="person" />
+                </datalist>
+              </div>
+            </div>
+
+            <!-- Merchant combobox -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Merchant</label>
+              <div class="relative">
+                <input
+                  v-model="editForm.merchantInputValue"
+                  type="text"
+                  placeholder="Search or create merchant…"
+                  autocomplete="off"
+                  class="w-full px-3 py-2 pr-8 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  @input="onMerchantInput"
+                  @focus="showMerchantDropdown = true"
+                  @blur="onMerchantBlur"
+                  @keydown.escape="showMerchantDropdown = false"
+                />
+                <button
+                  v-if="editForm.merchantInputValue"
+                  type="button"
+                  tabindex="-1"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  @click="clearMerchant"
+                >
+                  <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
+                </button>
+
+                <!-- Dropdown -->
+                <div
+                  v-if="showMerchantDropdown && (filteredMerchants.length > 0 || (editForm.merchantInputValue.trim() && !exactMerchantMatch))"
+                  class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <button
+                    v-for="m in filteredMerchants"
+                    :key="m.id"
+                    type="button"
+                    class="w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    @mousedown.prevent="selectMerchant(m)"
+                  >
+                    {{ m.normalizedName }}
+                  </button>
+                  <button
+                    v-if="editForm.merchantInputValue.trim() && !exactMerchantMatch"
+                    type="button"
+                    class="w-full px-3 py-2 text-left text-sm text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors font-medium border-t border-gray-100 dark:border-gray-800"
+                    @mousedown.prevent="createNewMerchant"
+                  >
+                    <UIcon name="i-heroicons-plus-circle" class="w-3.5 h-3.5 inline mr-1" />
+                    Create "{{ editForm.merchantInputValue.trim() }}"
+                  </button>
+                </div>
+              </div>
+
+              <!-- New merchant indicator -->
+              <p v-if="editForm.merchantIsNew && editForm.merchantInputValue" class="mt-1 text-xs text-primary-600 dark:text-primary-400 flex items-center gap-1">
+                <UIcon name="i-heroicons-plus-circle" class="w-3.5 h-3.5" />
+                New merchant will be created
+              </p>
+
+              <!-- Smart toggle: apply merchant change to all -->
+              <div
+                v-if="merchantChanged && editOriginal.merchantId !== null"
+                class="mt-2 flex items-start gap-2.5 p-2.5 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+              >
+                <input
+                  id="applyMerchantAll"
+                  v-model="applyMerchantToAll"
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 flex-shrink-0"
+                />
+                <label for="applyMerchantAll" class="text-xs text-amber-800 dark:text-amber-300 leading-relaxed cursor-pointer">
+                  Apply to all transactions from <strong>{{ editOriginal.merchantName }}</strong>
+                  <span class="text-amber-600 dark:text-amber-400 block mt-0.5">
+                    {{ editForm.merchantIsNew
+                      ? `Creates "${editForm.merchantInputValue}" and moves all transactions.`
+                      : `Merges into "${editForm.merchantInputValue}" and updates future imports.` }}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Category -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Category</label>
+              <select
+                v-model="editForm.categoryId"
+                class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">No Category</option>
+                <template v-for="parent in categoryTree" :key="parent.id">
+                  <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
+                    <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
+                  </optgroup>
+                  <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
+                </template>
+              </select>
+
+              <!-- Smart toggle: create category rule -->
+              <div
+                v-if="categoryChanged && (editForm.merchantId !== null || editForm.merchantIsNew)"
+                class="mt-2 flex items-start gap-2.5 p-2.5 rounded-md bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800"
+              >
+                <input
+                  id="createCategoryRule"
+                  v-model="createCategoryRule"
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 flex-shrink-0"
+                />
+                <label for="createCategoryRule" class="text-xs text-indigo-800 dark:text-indigo-300 leading-relaxed cursor-pointer">
+                  Always categorize <strong>{{ editForm.merchantInputValue || 'this merchant' }}</strong> as <strong>{{ editCategoryName }}</strong>
+                  <span class="text-indigo-600 dark:text-indigo-400 block mt-0.5">Creates a rule and applies it to all existing transactions from this merchant.</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
+              <textarea
+                v-model="editForm.notes"
+                rows="2"
+                placeholder="Optional notes…"
+                class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+              />
+            </div>
+
+            <p v-if="editError" class="text-sm text-red-500">{{ editError }}</p>
+          </div>
+
+          <template #footer>
+            <div class="flex justify-end gap-3">
+              <UButton label="Cancel" color="neutral" variant="ghost" @click="showEditModal = false" />
+              <UButton label="Save Changes" color="primary" :loading="editLoading" @click="saveEdit" />
+            </div>
+          </template>
+        </UCard>
+      </template>
+    </UModal>
+
     <!-- Filters -->
     <UCard class="mb-6">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -352,7 +560,8 @@
             <tr
               v-for="transaction in transactions"
               :key="transaction.id"
-              class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
+              class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group cursor-pointer"
+              @click="openEditModal(transaction)"
             >
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 tabular-nums">
                 {{ formatDate(transaction.transactionDate) }}
@@ -363,7 +572,7 @@
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                 {{ transaction.merchant?.name || '—' }}
               </td>
-              <td class="px-6 py-3 whitespace-nowrap text-sm">
+              <td class="px-6 py-3 whitespace-nowrap text-sm" @click.stop>
                 <select
                   :value="transaction.category?.id ? String(transaction.category.id) : ''"
                   class="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 border border-transparent text-gray-700 dark:text-gray-300 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500 w-40"
@@ -396,7 +605,7 @@
               >
                 {{ transaction.amount >= 0 ? '+' : '' }}{{ formatCurrency(Math.abs(transaction.amount)) }}
               </td>
-              <td class="px-3 py-3 whitespace-nowrap text-right">
+              <td class="px-3 py-3 whitespace-nowrap text-right" @click.stop>
                 <button
                   class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
                   title="Delete transaction"
@@ -446,6 +655,38 @@ const addError = ref<string | null>(null)
 const showDeleteModal = ref(false)
 const deletingTransaction = ref<any>(null)
 const deleteLoading = ref(false)
+
+// Edit Transaction modal
+const showEditModal = ref(false)
+const editingTransaction = ref<any>(null)
+const editLoading = ref(false)
+const editError = ref<string | null>(null)
+const applyMerchantToAll = ref(false)
+const createCategoryRule = ref(false)
+const showMerchantDropdown = ref(false)
+const allMerchants = ref<Array<{ id: number, normalizedName: string, rawNames: string[] }>>([])
+
+function defaultEditForm() {
+  return {
+    transactionDate: '',
+    type: '',
+    description: '',
+    amount: 0 as number,
+    merchantId: null as number | null,
+    merchantInputValue: '',
+    merchantIsNew: false,
+    categoryId: '' as string,
+    purchasedBy: '',
+    notes: '',
+  }
+}
+
+const editForm = ref(defaultEditForm())
+const editOriginal = ref({
+  merchantId: null as number | null,
+  merchantName: '',
+  categoryId: '' as string,
+})
 
 function defaultNewTx() {
   return {
@@ -543,6 +784,35 @@ const availableAccounts = ref<any[]>([])
 const currentPage = computed(() => Math.floor(offset.value / limit.value) + 1)
 const totalPages = computed(() => Math.ceil(total.value / limit.value))
 
+const merchantChanged = computed(() => {
+  if (editForm.value.merchantIsNew) return true
+  return editForm.value.merchantId !== editOriginal.value.merchantId
+})
+
+const categoryChanged = computed(() => {
+  return editForm.value.categoryId !== editOriginal.value.categoryId
+})
+
+const filteredMerchants = computed(() => {
+  const q = editForm.value.merchantInputValue.toLowerCase().trim()
+  if (!q) return allMerchants.value.slice(0, 10)
+  return allMerchants.value
+    .filter(m => m.normalizedName.toLowerCase().includes(q))
+    .slice(0, 10)
+})
+
+const exactMerchantMatch = computed(() => {
+  const q = editForm.value.merchantInputValue.trim().toLowerCase()
+  return allMerchants.value.some(m => m.normalizedName.toLowerCase() === q)
+})
+
+const editCategoryName = computed(() => {
+  if (!editForm.value.categoryId) return 'No Category'
+  const id = Number(editForm.value.categoryId)
+  const cat = allCategories.value.find((c: any) => c.id === id)
+  return cat?.name ?? 'selected category'
+})
+
 
 async function loadTransactions() {
   loading.value = true
@@ -596,6 +866,176 @@ async function loadAccounts() {
     availableAccounts.value = await $fetch('/api/accounts')
   } catch (error) {
     console.error('Failed to load accounts:', error)
+  }
+}
+
+async function loadMerchants() {
+  try {
+    allMerchants.value = await $fetch('/api/merchants') as any[]
+  } catch (error) {
+    console.error('Failed to load merchants:', error)
+  }
+}
+
+function openEditModal(tx: any) {
+  editingTransaction.value = tx
+  editError.value = null
+  applyMerchantToAll.value = false
+  createCategoryRule.value = false
+  showMerchantDropdown.value = false
+
+  editForm.value = {
+    transactionDate: tx.transactionDate ?? '',
+    type: tx.type ?? 'Purchase',
+    description: tx.description ?? '',
+    amount: tx.amount ?? 0,
+    merchantId: tx.merchant?.id ?? null,
+    merchantInputValue: tx.merchant?.name ?? '',
+    merchantIsNew: false,
+    categoryId: tx.category?.id ? String(tx.category.id) : '',
+    purchasedBy: tx.purchasedBy ?? '',
+    notes: tx.notes ?? '',
+  }
+
+  editOriginal.value = {
+    merchantId: tx.merchant?.id ?? null,
+    merchantName: tx.merchant?.name ?? '',
+    categoryId: tx.category?.id ? String(tx.category.id) : '',
+  }
+
+  showEditModal.value = true
+}
+
+function onMerchantInput() {
+  editForm.value.merchantId = null
+  editForm.value.merchantIsNew = false
+  showMerchantDropdown.value = true
+}
+
+function selectMerchant(m: { id: number, normalizedName: string }) {
+  editForm.value.merchantId = m.id
+  editForm.value.merchantInputValue = m.normalizedName
+  editForm.value.merchantIsNew = false
+  showMerchantDropdown.value = false
+}
+
+function createNewMerchant() {
+  editForm.value.merchantId = null
+  editForm.value.merchantIsNew = true
+  showMerchantDropdown.value = false
+}
+
+function clearMerchant() {
+  editForm.value.merchantId = null
+  editForm.value.merchantInputValue = ''
+  editForm.value.merchantIsNew = false
+  showMerchantDropdown.value = false
+}
+
+function onMerchantBlur() {
+  // Small delay so mousedown on dropdown items fires first
+  setTimeout(() => {
+    showMerchantDropdown.value = false
+    // If the typed value doesn't match any merchant and isn't a new merchant, reset to original
+    if (!editForm.value.merchantIsNew && editForm.value.merchantId === null && editForm.value.merchantInputValue) {
+      const match = allMerchants.value.find(m =>
+        m.normalizedName.toLowerCase() === editForm.value.merchantInputValue.toLowerCase(),
+      )
+      if (match) {
+        editForm.value.merchantId = match.id
+        editForm.value.merchantInputValue = match.normalizedName
+      }
+    }
+  }, 150)
+}
+
+async function saveEdit() {
+  if (!editingTransaction.value) return
+  editError.value = null
+  editLoading.value = true
+
+  try {
+    let finalMerchantId = editForm.value.merchantId
+
+    // Step 1: Handle merchant merge (apply to all)
+    if (merchantChanged.value && applyMerchantToAll.value && editOriginal.value.merchantId !== null) {
+      const mergeBody: Record<string, any> = {
+        sourceMerchantId: editOriginal.value.merchantId,
+      }
+      if (editForm.value.merchantIsNew) {
+        mergeBody.newMerchantName = editForm.value.merchantInputValue.trim()
+      } else if (editForm.value.merchantId) {
+        mergeBody.targetMerchantId = editForm.value.merchantId
+      } else {
+        mergeBody.newMerchantName = editForm.value.merchantInputValue.trim()
+      }
+      const merged = await $fetch('/api/merchants/merge', { method: 'POST', body: mergeBody }) as any
+      finalMerchantId = merged.id
+    } else if (merchantChanged.value && editForm.value.merchantIsNew && editForm.value.merchantInputValue.trim()) {
+      // Step 2: Create new merchant (no merge)
+      const created = await $fetch('/api/merchants', {
+        method: 'POST',
+        body: { name: editForm.value.merchantInputValue.trim() },
+      }) as any
+      finalMerchantId = created.id
+    }
+
+    // Step 3: Create category rule + apply to existing
+    if (categoryChanged.value && createCategoryRule.value && editForm.value.categoryId) {
+      const merchantForRule = finalMerchantId ?? editingTransaction.value.merchant?.id ?? null
+      const merchantName = editForm.value.merchantIsNew
+        ? editForm.value.merchantInputValue.trim()
+        : (editForm.value.merchantInputValue || editingTransaction.value.merchant?.name || '')
+
+      await $fetch('/api/merchant-rules', {
+        method: 'POST',
+        body: {
+          pattern: merchantName.toLowerCase(),
+          categoryId: Number(editForm.value.categoryId),
+          applyToExisting: true,
+          merchantId: merchantForRule,
+        },
+      })
+    }
+
+    // Step 4: PATCH the transaction with all field changes
+    const patch: Record<string, any> = {}
+    const orig = editingTransaction.value
+
+    if (editForm.value.transactionDate !== orig.transactionDate)
+      patch.transactionDate = editForm.value.transactionDate
+    if (editForm.value.type !== orig.type)
+      patch.type = editForm.value.type
+    if (editForm.value.description !== orig.description)
+      patch.description = editForm.value.description
+    if (Number(editForm.value.amount) !== orig.amount)
+      patch.amount = Number(editForm.value.amount)
+    if (finalMerchantId !== (orig.merchant?.id ?? null))
+      patch.merchantId = finalMerchantId
+    const newCatId = editForm.value.categoryId ? Number(editForm.value.categoryId) : null
+    const origCatId = orig.category?.id ?? null
+    if (newCatId !== origCatId)
+      patch.categoryId = newCatId
+    if ((editForm.value.purchasedBy || '') !== (orig.purchasedBy || ''))
+      patch.purchasedBy = editForm.value.purchasedBy || null
+    if ((editForm.value.notes || '') !== (orig.notes || ''))
+      patch.notes = editForm.value.notes || null
+
+    if (Object.keys(patch).length > 0) {
+      await $fetch(`/api/transactions/${editingTransaction.value.id}`, {
+        method: 'PATCH',
+        body: patch,
+      })
+    }
+
+    showEditModal.value = false
+    await loadTransactions()
+    // Refresh merchants list in case new ones were created
+    await loadMerchants()
+  } catch (err: any) {
+    editError.value = err?.data?.message ?? 'Failed to save changes.'
+  } finally {
+    editLoading.value = false
   }
 }
 
@@ -673,6 +1113,6 @@ function exportCsv() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadCategories(), loadPurchasers(), loadAccounts(), loadTransactions()])
+  await Promise.all([loadCategories(), loadPurchasers(), loadAccounts(), loadTransactions(), loadMerchants()])
 })
 </script>
