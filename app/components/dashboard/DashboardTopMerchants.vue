@@ -23,7 +23,8 @@
       <div
         v-for="(merchant, i) in merchants.slice(0, 8)"
         :key="merchant.merchantId ?? i"
-        class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+        class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+        @click="emit('select', merchant)"
       >
         <span class="text-xs font-mono text-gray-300 dark:text-gray-600 w-4 text-right flex-shrink-0">{{ i + 1 }}</span>
         <div class="flex-1 min-w-0">
@@ -42,5 +43,9 @@ defineProps<{
   merchants: any[]
   loading: boolean
   drilledCategory: { categoryId: number | null; categoryName: string | null; categoryColor: string | null } | null
+}>()
+
+const emit = defineEmits<{
+  select: [merchant: any]
 }>()
 </script>

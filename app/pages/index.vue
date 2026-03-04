@@ -51,6 +51,7 @@
         :merchants="filteredMerchants"
         :loading="merchantsLoading"
         :drilled-category="drilledCategory"
+        @select="goToMerchant"
       />
 
       <DashboardSpendOverTime
@@ -240,6 +241,14 @@ function navigateToMonth(month: string) {
 
 function goToCategory(categoryId: number | null) {
   if (categoryId) navigateTo(`/transactions?categoryId=${categoryId}`)
+}
+
+function goToMerchant(merchant: any) {
+  if (merchant.merchantId) {
+    const params = new URLSearchParams({ merchantId: String(merchant.merchantId) })
+    if (merchant.merchantName) params.set('merchantName', merchant.merchantName)
+    navigateTo(`/transactions?${params.toString()}`)
+  }
 }
 
 onMounted(() => {
