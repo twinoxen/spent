@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
-import { eq, desc, and, not, sql, inArray } from 'drizzle-orm'
+import { eq, desc, and, not, sql, inArray, isNull, or } from 'drizzle-orm'
 import { getDb } from '../../db'
 import { transactions, accounts, categories, merchants, merchantRules } from '../../db/schema'
 import { buildTransactionWhereClause } from '../../utils/transactionFilters'
@@ -298,11 +298,13 @@ function buildMcpServer(userId: number) {
     description: z.string().describe('Transaction description'),
     amount: z.number().describe('Amount (positive = income, negative = expense)'),
     transactionDate: z.string().describe('Date in YYYY-MM-DD format'),
+    clearingDate: z.string().optional().describe('Clearing/settlement date in YYYY-MM-DD format'),
     type: z.string().optional().default('Purchase').describe('Transaction type: Purchase, Payment, Refund, etc.'),
     categoryId: z.number().optional().describe('Category ID'),
     notes: z.string().optional(),
     merchantName: z.string().optional().describe('Merchant / payee name'),
     purchasedBy: z.string().optional(),
+    isPending: z.boolean().optional().default(false).describe('Mark transaction as pending (not yet cleared)'),
   }, async (args) => {
     const db = await getDb()
 
@@ -370,6 +372,7 @@ function buildMcpServer(userId: number) {
     const [created] = await db.insert(transactions).values({
       accountId: args.accountId,
       transactionDate: args.transactionDate,
+      clearingDate: args.clearingDate ?? null,
       description: args.description,
       type: args.type ?? 'Purchase',
       amount: signedAmount,
@@ -377,6 +380,7 @@ function buildMcpServer(userId: number) {
       categoryId: args.categoryId ?? null,
       purchasedBy: args.purchasedBy ?? null,
       notes: args.notes ?? null,
+      isPending: args.isPending ?? false,
       fingerprint,
       sourceFile: 'mcp',
     }).returning()
@@ -384,35 +388,66 @@ function buildMcpServer(userId: number) {
     return { content: [{ type: 'text', text: JSON.stringify(created, null, 2) }] }
   })
 
-  server.tool('update_transaction', 'Update a transaction\'s category, notes, or tags.', {
+  server.tool('update_transaction', 'Update any fields on a transaction.', {
     id: z.number().describe('Transaction ID'),
-    categoryId: z.number().nullable().optional().describe('New category ID (null to uncategorize)'),
-    notes: z.string().optional(),
+    transactionDate: z.string().optional().describe('Date in YYYY-MM-DD format'),
+    clearingDate: z.string().nullable().optional().describe('Clearing date in YYYY-MM-DD format (null to clear)'),
+    amount: z.number().optional().describe('New amount (use signed value: negative = expense, positive = income)'),
+    type: z.string().optional().describe('Transaction type: Purchase, Payment, Refund, etc.'),
+    description: z.string().optional(),
+    merchantId: z.number().nullable().optional().describe('Merchant ID (null to unlink)'),
+    categoryId: z.number().nullable().optional().describe('Category ID (null to uncategorize)'),
+    purchasedBy: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
     tags: z.array(z.string()).optional(),
+    isPending: z.boolean().optional().describe('Set pending status'),
   }, async (args) => {
     const db = await getDb()
-    const userAccountIds = db
+    const { id, ...fields } = args
+
+    // Verify the transaction belongs to one of the user's accounts
+    const [tx] = await db
+      .select({ id: transactions.id, accountId: transactions.accountId })
+      .from(transactions)
+      .where(eq(transactions.id, id))
+      .limit(1)
+
+    if (!tx) {
+      return { isError: true, content: [{ type: 'text', text: 'Transaction not found.' }] }
+    }
+
+    const [account] = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(eq(accounts.userId, userId))
+      .where(and(eq(accounts.id, tx.accountId), eq(accounts.userId, userId)))
+      .limit(1)
+
+    if (!account) {
+      return { isError: true, content: [{ type: 'text', text: 'Transaction does not belong to you.' }] }
+    }
 
     const updates: Record<string, unknown> = {}
-    if (args.categoryId !== undefined) updates.categoryId = args.categoryId
-    if (args.notes !== undefined) updates.notes = args.notes
-    if (args.tags !== undefined) updates.tags = args.tags
+    if (fields.transactionDate !== undefined) updates.transactionDate = fields.transactionDate
+    if (fields.clearingDate !== undefined) updates.clearingDate = fields.clearingDate
+    if (fields.amount !== undefined) updates.amount = fields.amount
+    if (fields.type !== undefined) updates.type = fields.type
+    if (fields.description !== undefined) updates.description = fields.description
+    if (fields.merchantId !== undefined) updates.merchantId = fields.merchantId
+    if (fields.categoryId !== undefined) updates.categoryId = fields.categoryId
+    if (fields.purchasedBy !== undefined) updates.purchasedBy = fields.purchasedBy
+    if (fields.notes !== undefined) updates.notes = fields.notes
+    if (fields.tags !== undefined) updates.tags = fields.tags
+    if (fields.isPending !== undefined) updates.isPending = fields.isPending
+
+    if (Object.keys(updates).length === 0) {
+      return { isError: true, content: [{ type: 'text', text: 'No fields to update.' }] }
+    }
 
     const [updated] = await db
       .update(transactions)
       .set(updates)
-      .where(and(
-        eq(transactions.id, args.id),
-        inArray(transactions.accountId, userAccountIds),
-      ))
+      .where(eq(transactions.id, id))
       .returning()
-
-    if (!updated) {
-      return { isError: true, content: [{ type: 'text', text: 'Transaction not found or does not belong to you.' }] }
-    }
 
     return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
   })
@@ -561,6 +596,247 @@ function buildMcpServer(userId: number) {
         }, null, 2),
       }],
     }
+  })
+
+  // ─── AI Categorization ─────────────────────────────────────────────────────
+
+  server.tool('auto_categorize_transactions', 'Run AI auto-categorization on all uncategorized transactions. Uses merchant rules first, then falls back to LLM.', {}, async () => {
+    const db = await getDb()
+    const config = useRuntimeConfig()
+
+    const { autoCategorizeMerchant } = await import('../../utils/categorizer')
+    const { createCategorizerStrategy } = await import('../../utils/llmCategorizer')
+
+    const [uncategorizedCategory] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.name, 'Uncategorized'), eq(categories.userId, userId)))
+      .limit(1)
+
+    const uncategorizedId = uncategorizedCategory?.id ?? null
+    const categoryWhereClause = uncategorizedId
+      ? or(isNull(transactions.categoryId), eq(transactions.categoryId, uncategorizedId))
+      : isNull(transactions.categoryId)
+
+    const userAccountIds = db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.userId, userId))
+
+    const uncategorized = await db
+      .select({
+        id: transactions.id,
+        description: transactions.description,
+        amount: transactions.amount,
+        type: transactions.type,
+        merchantId: transactions.merchantId,
+      })
+      .from(transactions)
+      .where(and(inArray(transactions.accountId, userAccountIds), categoryWhereClause))
+
+    if (uncategorized.length === 0) {
+      return { content: [{ type: 'text', text: JSON.stringify({ categorized: 0, total: 0 }) }] }
+    }
+
+    const allMerchants = await db
+      .select({ id: merchants.id, normalizedName: merchants.normalizedName })
+      .from(merchants)
+      .where(eq(merchants.userId, userId))
+
+    const merchantMap = new Map(allMerchants.map(m => [m.id, m.normalizedName]))
+
+    const allCategories = await db
+      .select({ id: categories.id, name: categories.name })
+      .from(categories)
+      .where(eq(categories.userId, userId))
+
+    const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
+    const llmCache = new Map<string, number | null>()
+
+    let categorized = 0
+    for (const tx of uncategorized) {
+      const merchantName = tx.merchantId ? (merchantMap.get(tx.merchantId) ?? tx.description) : tx.description
+
+      const llmFallback = async (name: string): Promise<number | null> => {
+        if (!llmStrategy) return null
+        if (llmCache.has(name)) return llmCache.get(name) ?? null
+        const result = await llmStrategy.categorize({ merchantName: name, description: tx.description, amount: tx.amount, type: tx.type, categories: allCategories })
+        llmCache.set(name, result)
+        return result
+      }
+
+      const categoryId = await autoCategorizeMerchant(merchantName, tx.description, undefined, llmFallback, userId)
+
+      if (categoryId !== null && categoryId !== uncategorizedId) {
+        await db.update(transactions).set({ categoryId }).where(eq(transactions.id, tx.id))
+        categorized++
+      }
+    }
+
+    return { content: [{ type: 'text', text: JSON.stringify({ categorized, total: uncategorized.length }) }] }
+  })
+
+  server.tool('suggest_categories', 'Ask the AI to suggest new categories based on uncategorized transactions. Returns suggestions that can be reviewed before applying.', {}, async () => {
+    const db = await getDb()
+    const config = useRuntimeConfig()
+
+    const { createCategorizerStrategy } = await import('../../utils/llmCategorizer')
+    const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
+
+    if (!llmStrategy?.suggestNewCategories) {
+      return { isError: true, content: [{ type: 'text', text: 'LLM categorization is not configured (OPENAI_API_KEY missing).' }] }
+    }
+
+    const [uncategorizedCategory] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.name, 'Uncategorized'), eq(categories.userId, userId)))
+      .limit(1)
+
+    const uncategorizedId = uncategorizedCategory?.id ?? null
+    const categoryWhereClause = uncategorizedId
+      ? or(isNull(transactions.categoryId), eq(transactions.categoryId, uncategorizedId))
+      : isNull(transactions.categoryId)
+
+    const userAccountIds = db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.userId, userId))
+
+    const uncategorized = await db
+      .select({ description: transactions.description, amount: transactions.amount, merchantId: transactions.merchantId })
+      .from(transactions)
+      .where(and(inArray(transactions.accountId, userAccountIds), categoryWhereClause))
+
+    if (uncategorized.length === 0) {
+      return { content: [{ type: 'text', text: JSON.stringify({ suggestions: [] }) }] }
+    }
+
+    const [allMerchantsResult, allCategoriesResult] = await Promise.all([
+      db.select({ id: merchants.id, normalizedName: merchants.normalizedName }).from(merchants).where(eq(merchants.userId, userId)),
+      db.select({ name: categories.name }).from(categories).where(eq(categories.userId, userId)),
+    ])
+
+    const merchantMap = new Map(allMerchantsResult.map(m => [m.id, m.normalizedName]))
+    const existingCategoryNames = allCategoriesResult.map(c => c.name)
+
+    const summaryMap = new Map<string, { normalizedName: string, transactionCount: number, totalAmount: number, sampleDescriptions: string[] }>()
+
+    for (const tx of uncategorized) {
+      const name = tx.merchantId ? (merchantMap.get(tx.merchantId) ?? tx.description) : tx.description
+      const existing = summaryMap.get(name)
+      if (existing) {
+        existing.transactionCount++
+        existing.totalAmount += tx.amount
+        if (existing.sampleDescriptions.length < 2 && !existing.sampleDescriptions.includes(tx.description)) {
+          existing.sampleDescriptions.push(tx.description)
+        }
+      } else {
+        summaryMap.set(name, { normalizedName: name, transactionCount: 1, totalAmount: tx.amount, sampleDescriptions: [tx.description] })
+      }
+    }
+
+    const merchantSummaries = Array.from(summaryMap.values()).sort((a, b) => b.totalAmount - a.totalAmount)
+    const suggestions = await llmStrategy.suggestNewCategories(merchantSummaries, existingCategoryNames)
+
+    return { content: [{ type: 'text', text: JSON.stringify({ suggestions }, null, 2) }] }
+  })
+
+  server.tool('apply_category_suggestions', 'Apply approved AI category suggestions: creates the categories, their merchant rules, then re-runs auto-categorization.', {
+    approved: z.array(z.object({
+      name: z.string(),
+      icon: z.string().optional(),
+      color: z.string().optional(),
+      patterns: z.array(z.string()).optional().describe('Merchant name patterns to create rules for'),
+    })).describe('List of suggestions to apply (from suggest_categories output)'),
+  }, async (args) => {
+    const db = await getDb()
+    const config = useRuntimeConfig()
+
+    const { autoCategorizeMerchant } = await import('../../utils/categorizer')
+    const { createCategorizerStrategy } = await import('../../utils/llmCategorizer')
+
+    let createdCategories = 0
+
+    for (const suggestion of args.approved) {
+      const [newCategory] = await db
+        .insert(categories)
+        .values({ userId, name: suggestion.name, icon: suggestion.icon ?? null, color: suggestion.color ?? null })
+        .returning({ id: categories.id })
+
+      if (!newCategory) continue
+      createdCategories++
+
+      if (suggestion.patterns?.length) {
+        await db.insert(merchantRules).values(
+          suggestion.patterns.map((pattern, i) => ({
+            userId,
+            pattern: pattern.toLowerCase(),
+            categoryId: newCategory.id,
+            priority: suggestion.patterns!.length - i,
+          }))
+        )
+      }
+    }
+
+    // Re-run auto-categorize on all still-uncategorized transactions
+    const [uncategorizedCategory] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.name, 'Uncategorized'), eq(categories.userId, userId)))
+      .limit(1)
+
+    const uncategorizedId = uncategorizedCategory?.id ?? null
+    const categoryWhereClause = uncategorizedId
+      ? or(isNull(transactions.categoryId), eq(transactions.categoryId, uncategorizedId))
+      : isNull(transactions.categoryId)
+
+    const userAccountIds = db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.userId, userId))
+
+    const uncategorized = await db
+      .select({ id: transactions.id, description: transactions.description, amount: transactions.amount, type: transactions.type, merchantId: transactions.merchantId })
+      .from(transactions)
+      .where(and(inArray(transactions.accountId, userAccountIds), categoryWhereClause))
+
+    const allMerchants = await db
+      .select({ id: merchants.id, normalizedName: merchants.normalizedName })
+      .from(merchants)
+      .where(eq(merchants.userId, userId))
+
+    const merchantMap = new Map(allMerchants.map(m => [m.id, m.normalizedName]))
+
+    const allCategories = await db
+      .select({ id: categories.id, name: categories.name })
+      .from(categories)
+      .where(eq(categories.userId, userId))
+
+    const llmStrategy = createCategorizerStrategy({ openaiApiKey: config.openaiApiKey })
+    const llmCache = new Map<string, number | null>()
+
+    let categorized = 0
+    for (const tx of uncategorized) {
+      const merchantName = tx.merchantId ? (merchantMap.get(tx.merchantId) ?? tx.description) : tx.description
+
+      const llmFallback = async (name: string): Promise<number | null> => {
+        if (!llmStrategy) return null
+        if (llmCache.has(name)) return llmCache.get(name) ?? null
+        const result = await llmStrategy.categorize({ merchantName: name, description: tx.description, amount: tx.amount, type: tx.type, categories: allCategories })
+        llmCache.set(name, result)
+        return result
+      }
+
+      const categoryId = await autoCategorizeMerchant(merchantName, tx.description, undefined, llmFallback, userId)
+
+      if (categoryId !== null && categoryId !== uncategorizedId) {
+        await db.update(transactions).set({ categoryId }).where(eq(transactions.id, tx.id))
+        categorized++
+      }
+    }
+
+    return { content: [{ type: 'text', text: JSON.stringify({ created: createdCategories, categorized }) }] }
   })
 
   // ─── Merchants ─────────────────────────────────────────────────────────────
