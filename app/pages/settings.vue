@@ -82,6 +82,70 @@
         </div>
       </div>
     </UCard>
+
+    <UCard class="border border-red-200 dark:border-red-900">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-500" />
+          <h2 class="text-base font-semibold text-red-600 dark:text-red-400">Danger Zone</h2>
+        </div>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Permanently delete your account and all associated data.
+        </p>
+      </template>
+
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-900 dark:text-white">Delete Account</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            Remove your account, transactions, merchants, categories, and all other data. This cannot be undone.
+          </p>
+        </div>
+        <UButton
+          label="Delete Account"
+          icon="i-heroicons-trash"
+          color="error"
+          variant="soft"
+          class="ml-6 shrink-0"
+          @click="showDeleteModal = true"
+        />
+      </div>
+    </UCard>
+
+    <UModal v-model:open="showDeleteModal" :dismissible="!deleting">
+      <template #content>
+        <div class="p-6 space-y-4">
+          <div class="flex items-start gap-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 shrink-0">
+              <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-gray-900 dark:text-white">Delete your account?</h3>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                This will permanently delete your account and all associated data — transactions, accounts, merchants,
+                categories, and import history. <strong class="text-gray-700 dark:text-gray-300">This cannot be undone.</strong>
+              </p>
+            </div>
+          </div>
+          <div class="flex justify-end gap-3 pt-2">
+            <UButton
+              label="Cancel"
+              color="neutral"
+              variant="ghost"
+              :disabled="deleting"
+              @click="showDeleteModal = false"
+            />
+            <UButton
+              label="Delete Account"
+              icon="i-heroicons-trash"
+              color="error"
+              :loading="deleting"
+              @click="deleteAccount"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -90,6 +154,10 @@ const newToken = ref<string | null>(null)
 const copied = ref(false)
 const generating = ref(false)
 const revoking = ref(false)
+const showDeleteModal = ref(false)
+const deleting = ref(false)
+
+const { logout } = useAuth()
 
 const { data: status, refresh: refreshStatus } = await useFetch<{
   active: boolean
@@ -118,6 +186,17 @@ async function revokeToken() {
     await refreshStatus()
   } finally {
     revoking.value = false
+  }
+}
+
+async function deleteAccount() {
+  deleting.value = true
+  try {
+    await $fetch('/api/auth/me', { method: 'DELETE' })
+    await logout()
+  } finally {
+    deleting.value = false
+    showDeleteModal.value = false
   }
 }
 
