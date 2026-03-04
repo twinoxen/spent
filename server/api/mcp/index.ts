@@ -1,12 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
-import { eq, desc, and, sql, inArray } from 'drizzle-orm'
+import { eq, desc, and, not, sql, inArray } from 'drizzle-orm'
 import { getDb } from '../../db'
 import { transactions, accounts, categories, merchants, merchantRules } from '../../db/schema'
 import { buildTransactionWhereClause } from '../../utils/transactionFilters'
 import { generateFingerprint } from '../../utils/fingerprint'
 import { toCsv } from '../../utils/exportFormats'
+import { interAccountTransferCondition } from '../../utils/transferExclusion'
 
 function buildMcpServer(userId: number) {
   const server = new McpServer({ name: 'spent', version: '1.0.0' })
@@ -76,8 +77,8 @@ function buildMcpServer(userId: number) {
     accountId: z.number().optional().describe('Filter by account ID'),
     categoryId: z.number().optional().describe('Filter by category ID'),
     search: z.string().optional().describe('Search by description or notes'),
-    startDate: z.string().optional().describe('Start date in MM/DD/YYYY format'),
-    endDate: z.string().optional().describe('End date in MM/DD/YYYY format'),
+    startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
+    endDate: z.string().optional().describe('End date in YYYY-MM-DD format'),
     limit: z.number().optional().default(50).describe('Number of results (default 50, max 500)'),
     offset: z.number().optional().default(0),
   }, async (args) => {
@@ -168,14 +169,11 @@ function buildMcpServer(userId: number) {
       }
     }
 
-    const [y, m, d] = args.transactionDate.split('-')
-    const storedDate = `${m}/${d}/${y}`
-
     const INCOME_TYPES = new Set(['Payment', 'Credit', 'Adjustment', 'Deposit', 'Refund'])
     const isIncome = INCOME_TYPES.has(args.type ?? 'Purchase')
     const signedAmount = isIncome ? Math.abs(args.amount) : -Math.abs(args.amount)
 
-    const fingerprint = generateFingerprint(storedDate, args.description, signedAmount, args.purchasedBy ?? '')
+    const fingerprint = generateFingerprint(args.transactionDate, args.description, signedAmount, args.purchasedBy ?? '')
 
     const [existing] = await db
       .select({ id: transactions.id })
@@ -211,7 +209,7 @@ function buildMcpServer(userId: number) {
 
     const [created] = await db.insert(transactions).values({
       accountId: args.accountId,
-      transactionDate: storedDate,
+      transactionDate: args.transactionDate,
       description: args.description,
       type: args.type ?? 'Purchase',
       amount: signedAmount,
@@ -272,16 +270,17 @@ function buildMcpServer(userId: number) {
       .from(accounts)
       .where(eq(accounts.userId, userId))
 
-    const isoDate = (col: any) =>
-      sql`(substr(${col}, 7, 4) || '-' || substr(${col}, 1, 2) || '-' || substr(${col}, 4, 2))`
+    const baseConditions: any[] = [
+      inArray(transactions.accountId, userAccountIds),
+      not(interAccountTransferCondition(userId)),
+    ]
 
-    const baseConditions: any[] = [inArray(transactions.accountId, userAccountIds)]
-
+    // Dates stored as YYYY-MM-DD — lexicographic comparison works directly
     if (args.startDate) {
-      baseConditions.push(sql`${isoDate(transactions.transactionDate)} >= ${args.startDate}`)
+      baseConditions.push(sql`${transactions.transactionDate} >= ${args.startDate}`)
     }
     if (args.endDate) {
-      baseConditions.push(sql`${isoDate(transactions.transactionDate)} <= ${args.endDate}`)
+      baseConditions.push(sql`${transactions.transactionDate} <= ${args.endDate}`)
     }
     if (args.accountId) {
       baseConditions.push(eq(transactions.accountId, args.accountId))
@@ -357,8 +356,8 @@ function buildMcpServer(userId: number) {
     accountId: z.number().optional(),
     categoryId: z.number().optional(),
     search: z.string().optional(),
-    startDate: z.string().optional().describe('MM/DD/YYYY'),
-    endDate: z.string().optional().describe('MM/DD/YYYY'),
+    startDate: z.string().optional().describe('YYYY-MM-DD'),
+    endDate: z.string().optional().describe('YYYY-MM-DD'),
   }, async (args) => {
     const db = await getDb()
     const userAccountIds = db

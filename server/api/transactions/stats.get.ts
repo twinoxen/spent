@@ -1,11 +1,8 @@
 import { getDb } from '../../db'
 import { transactions, categories, merchants, accounts } from '../../db/schema'
-import { and, eq, inArray, sql, desc, type SQL } from 'drizzle-orm'
+import { and, eq, inArray, sql, desc, not, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
-
-// Stored dates are MM/DD/YYYY — convert to YYYY-MM-DD for correct ISO string comparison
-const isoDate = (col: any) =>
-  sql`(substr(${col}, 7, 4) || '-' || substr(${col}, 1, 2) || '-' || substr(${col}, 4, 2))`
+import { interAccountTransferCondition } from '../../utils/transferExclusion'
 
 export default defineEventHandler(async (event) => {
   const db = await getDb()
@@ -33,14 +30,20 @@ export default defineEventHandler(async (event) => {
     .from(accounts)
     .where(eq(accounts.userId, userId))
 
-  // Base conditions shared by all queries (scope + date + person + account filters)
-  const baseConditions: SQL[] = [inArray(transactions.accountId, userAccountIds)]
+  const excludeTransfers = interAccountTransferCondition(userId)
 
+  // Base conditions shared by all queries (scope + date + person + account filters)
+  const baseConditions: SQL[] = [
+    inArray(transactions.accountId, userAccountIds),
+    not(excludeTransfers),
+  ]
+
+  // Dates are stored as YYYY-MM-DD — lexicographic comparison works correctly
   if (startDate) {
-    baseConditions.push(sql`${isoDate(transactions.transactionDate)} >= ${startDate}`)
+    baseConditions.push(sql`${transactions.transactionDate} >= ${startDate}`)
   }
   if (endDate) {
-    baseConditions.push(sql`${isoDate(transactions.transactionDate)} <= ${endDate}`)
+    baseConditions.push(sql`${transactions.transactionDate} <= ${endDate}`)
   }
   if (purchasedBy) {
     baseConditions.push(eq(transactions.purchasedBy, purchasedBy))
@@ -137,17 +140,17 @@ export default defineEventHandler(async (event) => {
     .groupBy(transactions.purchasedBy)
     .orderBy(desc(flowSumExpr))
 
-  // Breakdown over time (by month) — derive YYYY-MM from MM/DD/YYYY stored format
+  // Breakdown over time (by month) — dates stored as YYYY-MM-DD, so first 7 chars = YYYY-MM
   const spendOverTime = await db
     .select({
-      month: sql<string>`(substr(${transactions.transactionDate}, 7, 4) || '-' || substr(${transactions.transactionDate}, 1, 2))`,
+      month: sql<string>`substr(${transactions.transactionDate}, 1, 7)`,
       total: flowSumExpr,
       count: sql<number>`count(*)`,
     })
     .from(transactions)
     .where(and(...flowConditions))
-    .groupBy(sql`(substr(${transactions.transactionDate}, 7, 4) || '-' || substr(${transactions.transactionDate}, 1, 2))`)
-    .orderBy(sql`(substr(${transactions.transactionDate}, 7, 4) || '-' || substr(${transactions.transactionDate}, 1, 2))`)
+    .groupBy(sql`substr(${transactions.transactionDate}, 1, 7)`)
+    .orderBy(sql`substr(${transactions.transactionDate}, 1, 7)`)
 
   return {
     flow,

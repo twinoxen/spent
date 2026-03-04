@@ -78,9 +78,7 @@ export function buildTransactionWhereClause(
   }
 
   if (filters.date) {
-    // Convert YYYY-MM-DD → MM/DD/YYYY to match stored format
-    const [y, m, d] = filters.date.split('-')
-    conditions.push(eq(transactions.transactionDate, `${m}/${d}/${y}`))
+    conditions.push(eq(transactions.transactionDate, filters.date))
   }
 
   if (filters.startDate) {

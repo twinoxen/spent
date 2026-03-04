@@ -452,17 +452,9 @@ async function saveCategory() {
 }
 
 function formatDate(dateStr: string): string {
-  // Input is MM/DD/YYYY or YYYY-MM-DD
   if (!dateStr) return ''
-  // Handle YYYY-MM-DD
-  if (dateStr.includes('-') && dateStr.length === 10) {
-    const [y, m, d] = dateStr.split('-')
-    return `${m}/${d}/${y.slice(2)}`
-  }
-  // Handle MM/DD/YYYY → MM/DD/YY
-  const parts = dateStr.split('/')
-  if (parts.length === 3) return `${parts[0]}/${parts[1]}/${parts[2].slice(-2)}`
-  return dateStr
+  const [y, m, d] = dateStr.split('-')
+  return `${m}/${d}/${y.slice(2)}`
 }
 
 function formatAmount(amount: number): string {

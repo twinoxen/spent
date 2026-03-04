@@ -1,5 +1,5 @@
 <template>
-  <Bar :data="chartData" :options="(options as any)" />
+  <Bar :data="chartData" :options="(options as any)" style="cursor: pointer" />
 </template>
 
 <script setup lang="ts">
@@ -12,6 +12,10 @@ const colorMode = useColorMode()
 
 const props = defineProps<{
   data: Array<{ month: string; total: number }>
+}>()
+
+const emit = defineEmits<{
+  'month-click': [month: string]
 }>()
 
 const isDark = computed(() => colorMode.value === 'dark')
@@ -31,6 +35,13 @@ const chartData = computed(() => ({
 const options = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  onClick: (_event: any, elements: any[]) => {
+    if (elements.length > 0) {
+      const index = elements[0].index
+      const month = props.data[index]?.month
+      if (month) emit('month-click', month)
+    }
+  },
   plugins: {
     legend: { display: false },
     tooltip: {
