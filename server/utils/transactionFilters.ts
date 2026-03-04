@@ -1,5 +1,5 @@
 import { transactions, accounts } from '../db/schema'
-import { eq, and, gte, lte, like, or, isNull, inArray } from 'drizzle-orm'
+import { eq, and, gte, lte, like, or, isNull, inArray, sql } from 'drizzle-orm'
 
 export interface TransactionFilterParams {
   accountId?: number
@@ -12,6 +12,7 @@ export interface TransactionFilterParams {
   endDate?: string
   date?: string
   uncategorizedOnly?: boolean
+  amountSign?: 'debit' | 'credit'
 }
 
 /**
@@ -29,6 +30,7 @@ export function parseTransactionFilters(query: Record<string, any>): Transaction
     endDate: query.endDate as string | undefined,
     date: query.date as string | undefined,
     uncategorizedOnly: query.uncategorizedOnly === 'true',
+    amountSign: query.amountSign === 'credit' ? 'credit' : query.amountSign === 'debit' ? 'debit' : undefined,
   }
 }
 
@@ -55,6 +57,12 @@ export function buildTransactionWhereClause(
 
   if (filters.uncategorizedOnly) {
     conditions.push(isNull(transactions.categoryId))
+  }
+
+  if (filters.amountSign === 'debit') {
+    conditions.push(sql`${transactions.amount} < 0`)
+  } else if (filters.amountSign === 'credit') {
+    conditions.push(sql`${transactions.amount} > 0`)
   }
 
   if (filters.merchantId) {

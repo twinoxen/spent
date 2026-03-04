@@ -270,6 +270,41 @@
               <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
             </button>
           </span>
+          <!-- Active merchant chip -->
+          <span
+            v-if="filters.merchantId"
+            class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-medium"
+          >
+            <UIcon name="i-heroicons-building-storefront" class="w-3 h-3 flex-shrink-0" />
+            {{ filters.merchantName || 'Merchant' }}
+            <button
+              class="ml-0.5 p-0.5 rounded-full hover:bg-violet-200 dark:hover:bg-violet-800 transition-colors"
+              @click="filters.merchantId = null; filters.merchantName = null; loadTransactions()"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+            </button>
+          </span>
+          <!-- Active amount sign chip -->
+          <span
+            v-if="filters.amountSign"
+            class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-xs font-medium"
+            :class="filters.amountSign === 'debit'
+              ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+              : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'"
+          >
+            <UIcon
+              :name="filters.amountSign === 'debit' ? 'i-heroicons-arrow-trending-down' : 'i-heroicons-arrow-trending-up'"
+              class="w-3 h-3 flex-shrink-0"
+            />
+            {{ filters.amountSign === 'debit' ? 'Spend' : 'Income' }}
+            <button
+              class="ml-0.5 p-0.5 rounded-full transition-colors"
+              :class="filters.amountSign === 'debit' ? 'hover:bg-red-200 dark:hover:bg-red-800' : 'hover:bg-emerald-200 dark:hover:bg-emerald-800'"
+              @click="filters.amountSign = null; loadTransactions()"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+            </button>
+          </span>
         </div>
         <div class="flex items-center gap-2">
           <UButton label="Export CSV" color="neutral" variant="outline" size="sm" icon="i-heroicons-arrow-down-tray" @click="exportCsv" />
@@ -476,6 +511,9 @@ async function deleteTransaction() {
 const filters = ref({
   search: null as string | null,
   categoryId: route.query.categoryId ? String(route.query.categoryId) : null as string | null,
+  merchantId: route.query.merchantId ? Number(route.query.merchantId) : null as number | null,
+  merchantName: route.query.merchantName ? String(route.query.merchantName) : null as string | null,
+  amountSign: (route.query.amountSign === 'debit' || route.query.amountSign === 'credit') ? route.query.amountSign as 'debit' | 'credit' : null as 'debit' | 'credit' | null,
   purchasedBy: null as string | null,
   type: null as string | null,
   accountId: route.query.accountId ? Number(route.query.accountId) : null as number | null,
@@ -497,6 +535,8 @@ async function loadTransactions() {
     const params: any = { limit: limit.value, offset: offset.value }
     if (filters.value.search) params.search = filters.value.search
     if (filters.value.categoryId) params.categoryId = Number(filters.value.categoryId)
+    if (filters.value.merchantId) params.merchantId = filters.value.merchantId
+    if (filters.value.amountSign) params.amountSign = filters.value.amountSign
     if (filters.value.purchasedBy) params.purchasedBy = filters.value.purchasedBy
     if (filters.value.type) params.type = filters.value.type
     if (filters.value.accountId) params.accountId = filters.value.accountId
@@ -517,8 +557,10 @@ async function loadTransactions() {
 async function loadCategories() {
   try {
     const data = await $fetch('/api/categories')
-    allCategories.value = data.categories
-    categoryTree.value = data.tree
+    // Exclude the seeded "Uncategorized" category — dropdowns already have a
+    // hardcoded blank option for "no category", so showing it twice is confusing.
+    allCategories.value = data.categories.filter((c: any) => c.name.toLowerCase() !== 'uncategorized')
+    categoryTree.value = data.tree.filter((c: any) => c.name.toLowerCase() !== 'uncategorized')
   } catch (error) {
     console.error('Failed to load categories:', error)
   }
@@ -567,7 +609,7 @@ function formatDate(dateStr: string): string {
 }
 
 function clearFilters() {
-  filters.value = { search: null, categoryId: null, purchasedBy: null, type: null, accountId: null, date: null, startDate: null, endDate: null }
+  filters.value = { search: null, categoryId: null, merchantId: null, merchantName: null, amountSign: null, purchasedBy: null, type: null, accountId: null, date: null, startDate: null, endDate: null }
   offset.value = 0
   loadTransactions()
 }
@@ -602,6 +644,8 @@ function exportCsv() {
   const params = new URLSearchParams()
   if (filters.value.search) params.set('search', filters.value.search)
   if (filters.value.categoryId) params.set('categoryId', String(Number(filters.value.categoryId)))
+  if (filters.value.merchantId) params.set('merchantId', String(filters.value.merchantId))
+  if (filters.value.amountSign) params.set('amountSign', filters.value.amountSign)
   if (filters.value.purchasedBy) params.set('purchasedBy', filters.value.purchasedBy)
   if (filters.value.type) params.set('type', filters.value.type)
   if (filters.value.accountId) params.set('accountId', String(filters.value.accountId))

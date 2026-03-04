@@ -38,6 +38,8 @@
         :uncategorized-count="uncategorizedCount"
         :date-range-label="dateRangeLabel"
         :avg-monthly="avgMonthly"
+        @select-spend="goToAmountSign('debit')"
+        @select-income="goToAmountSign('credit')"
       />
 
       <DashboardSpendByCategory
@@ -51,6 +53,7 @@
         :merchants="filteredMerchants"
         :loading="merchantsLoading"
         :drilled-category="drilledCategory"
+        @select="goToMerchant"
       />
 
       <DashboardSpendOverTime
@@ -240,6 +243,22 @@ function navigateToMonth(month: string) {
 
 function goToCategory(categoryId: number | null) {
   if (categoryId) navigateTo(`/transactions?categoryId=${categoryId}`)
+}
+
+function goToAmountSign(amountSign: 'debit' | 'credit') {
+  const params = new URLSearchParams({ amountSign })
+  const { startDate, endDate } = dateRangeParams.value
+  if (startDate) params.set('startDate', startDate)
+  if (endDate) params.set('endDate', endDate)
+  navigateTo(`/transactions?${params.toString()}`)
+}
+
+function goToMerchant(merchant: any) {
+  if (merchant.merchantId) {
+    const params = new URLSearchParams({ merchantId: String(merchant.merchantId) })
+    if (merchant.merchantName) params.set('merchantName', merchant.merchantName)
+    navigateTo(`/transactions?${params.toString()}`)
+  }
 }
 
 onMounted(() => {
