@@ -53,11 +53,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Convert YYYY-MM-DD → MM/DD/YYYY for storage
-  const [y, m, d] = String(transactionDate).split('-')
-  const storedDate = `${m}/${d}/${y}`
-
-  const fingerprint = generateFingerprint(storedDate, description, signedAmount, purchasedBy ?? '')
+  const fingerprint = generateFingerprint(String(transactionDate), description, signedAmount, purchasedBy ?? '')
 
   // Check for duplicate fingerprint
   const [existing] = await db
@@ -102,7 +98,7 @@ export default defineEventHandler(async (event) => {
 
   const [created] = await db.insert(transactions).values({
     accountId: Number(accountId),
-    transactionDate: storedDate,
+    transactionDate: String(transactionDate),
     description: String(description),
     type: String(type),
     amount: signedAmount,

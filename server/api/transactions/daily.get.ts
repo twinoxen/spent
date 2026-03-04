@@ -1,10 +1,7 @@
 import { getDb } from '../../db'
 import { transactions, accounts } from '../../db/schema'
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm'
-
-// Stored dates are MM/DD/YYYY — derive ISO string for comparisons
-const isoDate = (col: any) =>
-  sql`(substr(${col}, 7, 4) || '-' || substr(${col}, 1, 2) || '-' || substr(${col}, 4, 2))`
+import { and, eq, inArray, not, sql, type SQL } from 'drizzle-orm'
+import { interAccountTransferCondition } from '../../utils/transferExclusion'
 
 export default defineEventHandler(async (event) => {
   const db = await getDb()
@@ -39,20 +36,20 @@ export default defineEventHandler(async (event) => {
   const conditions: SQL[] = [
     flowCondition,
     inArray(transactions.accountId, userAccountIds),
+    not(interAccountTransferCondition(userId)),
   ]
 
+  // Dates stored as YYYY-MM-DD — substr and lexicographic comparison work directly
   if (query.year && query.month) {
-    // Single-month mode
     const year = query.year as string
     const month = (query.month as string).padStart(2, '0')
-    conditions.push(sql`substr(${transactions.transactionDate}, 7, 4) = ${year}`)
-    conditions.push(sql`substr(${transactions.transactionDate}, 1, 2) = ${month}`)
+    conditions.push(sql`substr(${transactions.transactionDate}, 1, 4) = ${year}`)
+    conditions.push(sql`substr(${transactions.transactionDate}, 6, 2) = ${month}`)
   } else {
-    // Date-range mode (or all time if neither is provided)
     const startDate = query.startDate as string | undefined
     const endDate = query.endDate as string | undefined
-    if (startDate) conditions.push(sql`${isoDate(transactions.transactionDate)} >= ${startDate}`)
-    if (endDate) conditions.push(sql`${isoDate(transactions.transactionDate)} <= ${endDate}`)
+    if (startDate) conditions.push(sql`${transactions.transactionDate} >= ${startDate}`)
+    if (endDate) conditions.push(sql`${transactions.transactionDate} <= ${endDate}`)
   }
 
   if (purchasedBy) conditions.push(eq(transactions.purchasedBy, purchasedBy))
@@ -62,8 +59,8 @@ export default defineEventHandler(async (event) => {
     conditions.push(inArray(transactions.accountId, accountIds))
   }
 
-  // Always group by full ISO date so the result works for both single and multi-month views
-  const fullDate = sql<string>`(substr(${transactions.transactionDate}, 7, 4) || '-' || substr(${transactions.transactionDate}, 1, 2) || '-' || substr(${transactions.transactionDate}, 4, 2))`
+  // Dates stored as YYYY-MM-DD — the column value is already the full ISO date
+  const fullDate = transactions.transactionDate
 
   const rows = await db
     .select({

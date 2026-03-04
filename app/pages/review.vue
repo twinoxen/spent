@@ -393,13 +393,8 @@ async function handleApply() {
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
-  // ISO format: YYYY-MM-DD (from PDF imports)
-  if (dateStr.includes('-')) {
-    const [y, m, d] = dateStr.split('-')
-    return `${m}/${d}/${y}`
-  }
-  // Legacy MM/DD/YYYY format (from CSV imports)
-  return dateStr
+  const [y, m, d] = dateStr.split('-')
+  return `${m}/${d}/${y}`
 }
 
 function nextPage() {

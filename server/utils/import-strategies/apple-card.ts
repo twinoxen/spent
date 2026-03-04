@@ -23,6 +23,12 @@ interface AppleCardRow {
   'Purchased By': string
 }
 
+function mmddyyyyToIso(date: string): string {
+  const match = date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (match) return `${match[3]}-${match[1]}-${match[2]}`
+  return date
+}
+
 export const appleCardStrategy: ImportStrategy = {
   name: 'apple_card',
 
@@ -45,8 +51,8 @@ export const appleCardStrategy: ImportStrategy = {
       const rawAmount = Math.abs(parseFloat(row['Amount (USD)'].replace(/,/g, '')))
       const isCredit = CREDIT_TYPES.has(row['Type'])
       return {
-        transactionDate: row['Transaction Date'],
-        clearingDate: row['Clearing Date'] || undefined,
+        transactionDate: mmddyyyyToIso(row['Transaction Date']),
+        clearingDate: row['Clearing Date'] ? mmddyyyyToIso(row['Clearing Date']) : undefined,
         description: row['Description'],
         merchantName: row['Merchant'] || row['Description'],
         // Credits/payments → positive (income); purchases/fees → negative (expense)
