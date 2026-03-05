@@ -1,7 +1,6 @@
 import { getDb } from '../../../../db'
 import { stagingTransactions, transactions, merchants, importSessions, accounts } from '../../../../db/schema'
 import { and, eq } from 'drizzle-orm'
-import { generateFingerprint } from '../../../../utils/fingerprint'
 
 export default defineEventHandler(async (event) => {
   const db = await getDb()
@@ -51,11 +50,11 @@ export default defineEventHandler(async (event) => {
 
   for (const row of selected) {
     try {
-      // Race-condition guard: if a row wasn't flagged as a duplicate at staging time,
-      // check whether a concurrent session committed the same fingerprint in the meantime.
-      // We skip the check for rows the user explicitly opted into (isDuplicate = true)
-      // so their decision is always honoured.
-      if (!row.isDuplicate) {
+      // Check for an existing transaction with the same fingerprint.
+      // We no longer block the insert — instead we set isDuplicateFlagged so the
+      // user can see and reconcile duplicates after import.
+      let isDuplicateFlagged = row.isDuplicate
+      if (!isDuplicateFlagged) {
         const existing = await db
           .select({ id: transactions.id })
           .from(transactions)
@@ -63,8 +62,7 @@ export default defineEventHandler(async (event) => {
           .limit(1)
 
         if (existing.length > 0) {
-          skipped++
-          continue
+          isDuplicateFlagged = true
         }
       }
 
@@ -108,10 +106,15 @@ export default defineEventHandler(async (event) => {
         purchasedBy: row.purchasedBy ?? undefined,
         sourceFile: session.filename,
         fingerprint: row.fingerprint,
+        isDuplicateFlagged,
         importSessionId: sessionId,
       })
 
-      imported++
+      if (isDuplicateFlagged) {
+        skipped++
+      } else {
+        imported++
+      }
     } catch (error) {
       const errorMsg = `Transaction "${row.description}": ${error instanceof Error ? error.message : 'Unknown error'}`
       errors.push(errorMsg)

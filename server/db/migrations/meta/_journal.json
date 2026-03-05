@@ -50,6 +50,13 @@
       "when": 1772664584770,
       "tag": "0006_new_boom_boom",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772684726152,
+      "tag": "0007_absurd_deadpool",
+      "breakpoints": true
     }
   ]
 }

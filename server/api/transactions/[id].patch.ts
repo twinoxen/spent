@@ -14,6 +14,7 @@ interface UpdateTransactionBody {
   notes?: string | null
   tags?: string[]
   isPending?: boolean
+  accountId?: number
 }
 
 export default defineEventHandler(async (event) => {
@@ -30,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<UpdateTransactionBody>(event)
 
-  const allowedFields = ['transactionDate', 'clearingDate', 'amount', 'type', 'description', 'merchantId', 'categoryId', 'purchasedBy', 'notes', 'tags', 'isPending']
+  const allowedFields = ['transactionDate', 'clearingDate', 'amount', 'type', 'description', 'merchantId', 'categoryId', 'purchasedBy', 'notes', 'tags', 'isPending', 'accountId']
   const hasUpdate = allowedFields.some(f => (body as any)[f] !== undefined)
 
   if (!hasUpdate) {
@@ -61,6 +62,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: 'Access denied' })
   }
 
+  // If accountId is being changed, verify the new account also belongs to this user
+  if (body.accountId !== undefined && body.accountId !== tx.accountId) {
+    const [targetAccount] = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, body.accountId), eq(accounts.userId, userId)))
+      .limit(1)
+
+    if (!targetAccount) {
+      throw createError({ statusCode: 403, message: 'Target account not found or access denied' })
+    }
+  }
+
   const updates: Partial<typeof transactions.$inferInsert> = {}
 
   if (body.transactionDate !== undefined) updates.transactionDate = body.transactionDate
@@ -74,6 +88,7 @@ export default defineEventHandler(async (event) => {
   if (body.notes !== undefined) updates.notes = body.notes
   if (body.tags !== undefined) updates.tags = body.tags as any
   if (body.isPending !== undefined) updates.isPending = body.isPending
+  if (body.accountId !== undefined) updates.accountId = body.accountId
 
   const [updated] = await db
     .update(transactions)
