@@ -5,6 +5,7 @@ import { generateFingerprint } from '../utils/fingerprint'
 import { autoCategorizeMerchant } from '../utils/categorizer'
 import { detectStrategy } from '../utils/import-strategies'
 import { parsePdfStatement } from '../utils/import-strategies/pdf'
+import { parseImageStatement } from '../utils/import-strategies/image'
 import { parseCsvWithLLM } from '../utils/import-strategies/llm-csv'
 import type { NormalizedTransaction } from '../utils/import-strategies/types'
 import { createCategorizerStrategy, type CategorizationInput } from '../utils/llmCategorizer'
@@ -45,9 +46,10 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
       throw createError({ statusCode: 400, message: 'Invalid accountId' })
     }
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024
+    // Images (especially HEIC) can be larger than typical CSVs/PDFs. Allow up to 20 MB.
+    const MAX_FILE_SIZE = 20 * 1024 * 1024
     if (fileData.data.length > MAX_FILE_SIZE) {
-      throw createError({ statusCode: 400, message: 'File size exceeds the 10 MB limit.' })
+      throw createError({ statusCode: 400, message: 'File size exceeds the 20 MB limit.' })
     }
 
     // Verify account exists and belongs to this user
@@ -62,16 +64,26 @@ export default defineEventHandler(async (event): Promise<ImportResult> => {
     }
 
     const filename = fileData.filename || 'unknown'
+    const fileExt = filename.toLowerCase().split('.').pop() ?? ''
+    const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic'])
 
     let records: NormalizedTransaction[]
     let sourceType: string
-    if (filename.toLowerCase().endsWith('.pdf')) {
+    if (fileExt === 'pdf') {
       records = await parsePdfStatement(
         fileData.data,
         config.openaiApiKey,
         account.institution ?? undefined,
       )
       sourceType = 'pdf'
+    } else if (IMAGE_EXTENSIONS.has(fileExt)) {
+      records = await parseImageStatement(
+        fileData.data,
+        fileExt,
+        config.openaiApiKey,
+        account.institution ?? undefined,
+      )
+      sourceType = 'image'
     } else {
       const csvContent = fileData.data.toString('utf-8')
       const strategy = detectStrategy(filename, csvContent)

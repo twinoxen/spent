@@ -12,6 +12,7 @@
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
         <p class="text-base font-medium text-gray-800 dark:text-gray-100">Importing transactions…</p>
         <p v-if="importingPdf" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Extracting text and parsing with AI — this may take 10–20 seconds</p>
+        <p v-else-if="importingImage" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Analyzing image with AI — this may take 15–30 seconds</p>
         <p v-else class="text-sm text-gray-400 dark:text-gray-500 mt-1">This may take a moment</p>
       </div>
 
@@ -230,10 +231,10 @@
               </div>
               <div>
                 <p class="font-medium text-gray-700 dark:text-gray-200">Drag and drop your statement here</p>
-                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">CSV or PDF · or</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">CSV, PDF, or image (JPG, PNG, WEBP, HEIC) · or</p>
               </div>
               <UButton label="Choose File" color="primary" variant="soft" @click="($refs.fileInput as HTMLInputElement).click()" />
-              <input ref="fileInput" type="file" accept=".csv,.pdf,application/pdf" class="hidden" @change="handleFileSelect" />
+              <input ref="fileInput" type="file" accept=".csv,.pdf,application/pdf,.jpg,.jpeg,.png,.webp,.heic,image/jpeg,image/png,image/webp,image/heic" class="hidden" @change="handleFileSelect" />
             </div>
           </div>
 
@@ -246,6 +247,12 @@
                   <svg class="w-5 h-5 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h1.5a1 1 0 010 2H9v-4h1.5a1 1 0 010 2" />
+                  </svg>
+                </div>
+                <!-- Image icon -->
+                <div v-else-if="isImage" class="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-violet-500 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <!-- CSV icon -->
@@ -268,6 +275,15 @@
               </svg>
               <p class="text-xs text-amber-700 dark:text-amber-400">
                 PDF imports use AI to identify transactions and may take a moment longer than CSV.
+              </p>
+            </div>
+            <!-- Image-specific notice -->
+            <div v-else-if="isImage" class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/15 border border-amber-100 dark:border-amber-800/40">
+              <svg class="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p class="text-xs text-amber-700 dark:text-amber-400">
+                Image imports are analyzed with AI vision. For best results, use a clear, well-lit photo or screenshot. Each image is processed as a single page — import multiple files for multi-page statements.
               </p>
             </div>
           </div>
@@ -310,12 +326,20 @@ const creatingAccount = ref(false)
 function today() { return new Date().toISOString().split('T')[0] }
 const newAccount = ref({ name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0], currentBalance: '' as string | number, balanceAsOfDate: today(), creditLimit: '' as string | number, apr: '' as string | number })
 
+const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic'])
+
 const selectedFile = ref<File | null>(null)
 const dragOver = ref(false)
 const importing = ref(false)
 const importingPdf = ref(false)
+const importingImage = ref(false)
 
+function fileExt(file: File) { return file.name.toLowerCase().split('.').pop() ?? '' }
 const isPdf = computed(() => selectedFile.value?.name.toLowerCase().endsWith('.pdf') ?? false)
+const isImage = computed(() => {
+  const ext = selectedFile.value ? fileExt(selectedFile.value) : ''
+  return IMAGE_EXTENSIONS.has(ext)
+})
 
 async function loadAccounts() {
   loadingAccounts.value = true
@@ -384,6 +408,7 @@ async function uploadFile() {
   if (!selectedFile.value || !selectedAccountId.value) return
   importing.value = true
   importingPdf.value = isPdf.value
+  importingImage.value = isImage.value
   try {
     const formData = new FormData()
     formData.append('file', selectedFile.value)
@@ -394,6 +419,7 @@ async function uploadFile() {
     console.error('Import failed:', error)
     importing.value = false
     importingPdf.value = false
+    importingImage.value = false
   }
 }
 
