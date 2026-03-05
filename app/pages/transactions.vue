@@ -462,6 +462,19 @@
               </div>
             </div>
 
+            <!-- Account -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Account</label>
+              <select
+                v-model="editForm.accountId"
+                class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option v-for="acc in availableAccounts" :key="acc.id" :value="acc.id">
+                  {{ acc.name }}<template v-if="acc.institution"> — {{ acc.institution }}</template>
+                </option>
+              </select>
+            </div>
+
             <!-- Notes -->
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
@@ -860,6 +873,7 @@ function defaultEditForm() {
     type: '',
     description: '',
     amount: 0 as number,
+    accountId: null as number | null,
     merchantId: null as number | null,
     merchantInputValue: '',
     merchantIsNew: false,
@@ -1087,6 +1101,7 @@ function openEditModal(tx: any) {
     type: tx.type ?? 'Purchase',
     description: tx.description ?? '',
     amount: tx.amount ?? 0,
+    accountId: tx.accountId ?? null,
     merchantId: tx.merchant?.id ?? null,
     merchantInputValue: tx.merchant?.name ?? '',
     merchantIsNew: false,
@@ -1225,6 +1240,8 @@ async function saveEdit() {
     const patch: Record<string, any> = {}
     const orig = editingTransaction.value
 
+    if (editForm.value.accountId !== null && editForm.value.accountId !== orig.accountId)
+      patch.accountId = editForm.value.accountId
     if (editForm.value.transactionDate !== orig.transactionDate)
       patch.transactionDate = editForm.value.transactionDate
     if (editForm.value.type !== orig.type)

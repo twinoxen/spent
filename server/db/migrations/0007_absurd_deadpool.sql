@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" DROP CONSTRAINT "transactions_fingerprint_unique";

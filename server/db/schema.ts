@@ -89,7 +89,7 @@ export const transactions = pgTable('transactions', {
   amount: doublePrecision('amount').notNull(),
   purchasedBy: text('purchased_by'),
   sourceFile: text('source_file'),
-  fingerprint: text('fingerprint').notNull().unique(),
+  fingerprint: text('fingerprint').notNull(),
   notes: text('notes'),
   tags: jsonb('tags').$type<string[]>().default(sql`'[]'::jsonb`),
   isPending: boolean('is_pending').default(false),
