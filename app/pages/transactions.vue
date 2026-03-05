@@ -196,7 +196,7 @@
     </UModal>
 
     <!-- Edit Transaction Modal -->
-    <UModal v-model:open="showEditModal">
+    <UModal scrollable v-model:open="showEditModal">
       <template #content>
         <UCard>
           <template #header>
