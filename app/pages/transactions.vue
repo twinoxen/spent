@@ -6,7 +6,7 @@
     </div>
 
     <!-- Add Transaction Modal -->
-    <UModal v-model:open="showAddModal">
+    <UModal scrollable v-model:open="showAddModal">
       <template #content>
         <UCard>
           <template #header>
