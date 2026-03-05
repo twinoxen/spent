@@ -113,6 +113,15 @@ export default defineEventHandler(async (event) => {
 
       imported++
     } catch (error) {
+      // Unique constraint violation (Postgres: 23505, SQLite: "UNIQUE constraint failed")
+      // means another session already committed this fingerprint — treat as a skip.
+      const isUniqueViolation =
+        (error as { code?: string })?.code === '23505' ||
+        (error instanceof Error && error.message.includes('UNIQUE constraint failed'))
+      if (isUniqueViolation) {
+        skipped++
+        continue
+      }
       const errorMsg = `Transaction "${row.description}": ${error instanceof Error ? error.message : 'Unknown error'}`
       errors.push(errorMsg)
       console.error(errorMsg, error)
