@@ -180,7 +180,7 @@
             <div class="rounded-md bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm">
               <p class="font-medium text-gray-800 dark:text-gray-100">{{ deletingTransaction?.description }}</p>
               <p class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                {{ formatDate(deletingTransaction?.transactionDate) }} &middot; {{ formatCurrency(Math.abs(deletingTransaction?.amount ?? 0)) }}
+                {{ formatDate(deletingTransaction?.transactionDate) }} &middot; {{ formatCurrency(deletingTransaction?.amount ?? 0) }}
               </p>
             </div>
             <p class="text-xs text-red-500 dark:text-red-400">This cannot be undone.</p>
@@ -784,9 +784,9 @@
               </td>
               <td
                 class="px-6 py-3 whitespace-nowrap text-sm text-right font-semibold tabular-nums"
-                :class="transaction.amount >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-900 dark:text-white'"
+                :class="moneyValueToneClass(transaction.amount)"
               >
-                {{ transaction.amount >= 0 ? '+' : '' }}{{ formatCurrency(Math.abs(transaction.amount)) }}
+                {{ formatCurrency(transaction.amount) }}
               </td>
               <td class="px-3 py-3 whitespace-nowrap text-right" @click.stop>
                 <button

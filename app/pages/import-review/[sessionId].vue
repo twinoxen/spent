@@ -463,9 +463,7 @@ function formatDate(dateStr: string): string {
 }
 
 function formatAmount(amount: number): string {
-  const abs = Math.abs(amount)
-  const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return amount < 0 ? `+$${formatted}` : `$${formatted}`
+  return formatMoney(amount)
 }
 
 onMounted(loadStagingData)
