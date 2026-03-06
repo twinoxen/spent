@@ -21,7 +21,7 @@ Finance visualization app built with Nuxt 4 + Drizzle on Postgres.
 npm ci
 ```
 
-2. Copy env file and set DB URL (default below matches compose):
+2. Copy env file and set `STORAGE_DATABASE_URL` (default below matches compose):
 
 ```bash
 cp .env.example .env.local
@@ -74,5 +74,5 @@ Pull request CI (`.github/workflows/ci.yml`) runs:
 ## Vercel environment variables
 
 - Set `STORAGE_DATABASE_URL` in Production/Preview/Development as needed.
-- Remove `DATABASE_URL` from the project to avoid stale or conflicting configuration.
+- Remove any legacy DB URL env vars from the project to avoid stale or conflicting configuration.
 - If you use Neon + Vercel integration, map the integration output value into `STORAGE_DATABASE_URL`.
