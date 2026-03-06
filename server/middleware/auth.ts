@@ -10,12 +10,10 @@ export default defineEventHandler(async (event) => {
   // Authenticated /api/auth/* endpoints (me, tokens) must NOT be skipped so that
   // event.context.user is populated before their handlers run.
   const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/logout']
-  const isPublicHealthDbGet = path === '/api/health/db' && event.method === 'GET'
   if (
     !path.startsWith('/api/') ||
     publicPaths.some(p => path.startsWith(p)) ||
-    path.startsWith('/api/oauth/') ||
-    isPublicHealthDbGet
+    path.startsWith('/api/oauth/')
   ) {
     return
   }

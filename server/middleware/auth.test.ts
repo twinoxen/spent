@@ -13,11 +13,14 @@ describe('auth middleware', () => {
     vi.stubGlobal('setResponseHeader', vi.fn())
   })
 
-  it('allows unauthenticated GET /api/health/db', async () => {
+  it('rejects unauthenticated GET /api/health/db', async () => {
     const middleware = (await import('./auth')).default
     const event = { path: '/api/health/db', method: 'GET', context: {} }
 
-    await expect(middleware(event as any)).resolves.toBeUndefined()
+    await expect(middleware(event as any)).rejects.toMatchObject({
+      statusCode: 401,
+      message: 'Unauthorized',
+    })
   })
 
   it('still rejects unauthenticated protected API routes', async () => {
