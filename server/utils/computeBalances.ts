@@ -61,6 +61,7 @@ export interface RawAccountRow {
   totalTxAmount: number | null // backward compatibility
   postedTxAmount?: number | null
   pendingTxAmount?: number | null
+  anchoredTxAmount?: number | null
   openingTxAmount: number | null
   openingTxDate: string | null
 }
@@ -72,11 +73,15 @@ export function computeAccountBalance(row: RawAccountRow): AccountWithBalance {
   let utilization: number | null = null
 
   if (row.transactionCount > 0) {
-    const posted = row.postedTxAmount
-    const pending = row.pendingTxAmount
-    const txSum = (posted ?? 0) + (pending ?? 0)
-    const fallbackSum = row.totalTxAmount ?? 0
-    calculatedBalance = (posted === undefined && pending === undefined) ? fallbackSum : txSum
+    if (row.anchoredTxAmount !== undefined) {
+      calculatedBalance = row.anchoredTxAmount ?? 0
+    } else {
+      const posted = row.postedTxAmount
+      const pending = row.pendingTxAmount
+      const txSum = (posted ?? 0) + (pending ?? 0)
+      const fallbackSum = row.totalTxAmount ?? 0
+      calculatedBalance = (posted === undefined && pending === undefined) ? fallbackSum : txSum
+    }
   }
 
   if (calculatedBalance !== null && row.currentBalance !== null) {

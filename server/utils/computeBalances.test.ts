@@ -59,4 +59,54 @@ describe('computeAccountBalance', () => {
     expect(result.availableCredit).toBeNull()
     expect(result.utilization).toBeNull()
   })
+
+  it('uses opening-balance anchored aggregate and ignores pre-anchor transactions', () => {
+    const result = computeAccountBalance({
+      id: 3,
+      name: 'Apple Card',
+      type: 'credit_card',
+      institution: 'Apple',
+      lastFour: '9999',
+      color: '#6366f1',
+      currentBalance: 7948.75,
+      balanceAsOfDate: '2026-03-06',
+      creditLimit: 10000,
+      apr: 24.99,
+      createdAt: new Date('2026-03-01'),
+      transactionCount: 7,
+      // Includes old pre-anchor rows in totalTxAmount, but anchoredTxAmount must win.
+      totalTxAmount: 7000,
+      anchoredTxAmount: 7948.75,
+      openingTxAmount: 6180.29,
+      openingTxDate: '2026-03-01',
+    })
+
+    expect(result.calculatedBalance).toBeCloseTo(7948.75, 2)
+    expect(result.delta).toBe(0)
+  })
+
+  it('uses deterministic same-day tie-break ordering around opening anchor', () => {
+    const result = computeAccountBalance({
+      id: 4,
+      name: 'Tie Break Card',
+      type: 'credit_card',
+      institution: 'Test Bank',
+      lastFour: '0000',
+      color: '#6366f1',
+      currentBalance: 120,
+      balanceAsOfDate: '2026-03-06',
+      creditLimit: 1000,
+      apr: null,
+      createdAt: new Date('2026-03-01'),
+      transactionCount: 4,
+      // anchoredTxAmount comes from SQL using (transactionDate, createdAt, id) > anchor tuple
+      // so same-day transactions older than the anchor are excluded.
+      anchoredTxAmount: 120,
+      totalTxAmount: 90,
+      openingTxAmount: 100,
+      openingTxDate: '2026-03-01',
+    })
+
+    expect(result.calculatedBalance).toBe(120)
+  })
 })
