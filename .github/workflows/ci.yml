@@ -23,7 +23,7 @@ jobs:
           --health-retries=20
 
     env:
-      DATABASE_URL: postgresql://spent:spent@localhost:5432/spent
+      STORAGE_DATABASE_URL: postgresql://spent:spent@localhost:5432/spent
       JWT_SECRET: ci-test-secret-32-characters-minimum
 
     steps:

@@ -15,10 +15,10 @@ cp .env.example .env.local
 Ensure `.env.local` contains:
 
 ```bash
-DATABASE_URL=postgresql://spent:spent@localhost:5432/spent
+STORAGE_DATABASE_URL=postgresql://spent:spent@localhost:5432/spent
 ```
 
-(You can use `STORAGE_DATABASE_URL` instead. One of them is required.)
+(`STORAGE_DATABASE_URL` is required.)
 
 ## 3) Run migrations
 
@@ -41,4 +41,4 @@ npm run db:migrate
 
 ## Production
 
-Use Neon Postgres and set `DATABASE_URL` (or `STORAGE_DATABASE_URL`) in your deployment environment.
+Use Neon Postgres and set `STORAGE_DATABASE_URL` in your deployment environment.

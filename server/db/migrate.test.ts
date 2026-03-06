@@ -25,7 +25,6 @@ describe('migrate configuration', () => {
     vi.resetAllMocks()
     process.env = { ...originalEnv }
     delete process.env.STORAGE_DATABASE_URL
-    delete process.env.DATABASE_URL
     delete process.env.NODE_ENV
   })
 
@@ -33,24 +32,20 @@ describe('migrate configuration', () => {
     process.env = { ...originalEnv }
   })
 
-  it('getRequiredDatabaseUrl prefers STORAGE_DATABASE_URL when present', () => {
-    expect(
-      getRequiredDatabaseUrl({ STORAGE_DATABASE_URL: 'postgres://storage', DATABASE_URL: 'postgres://app' } as NodeJS.ProcessEnv),
-    ).toBe('postgres://storage')
-  })
-
-  it('getRequiredDatabaseUrl falls back to DATABASE_URL', () => {
-    expect(getRequiredDatabaseUrl({ DATABASE_URL: 'postgres://app' } as NodeJS.ProcessEnv)).toBe('postgres://app')
+  it('getRequiredDatabaseUrl returns STORAGE_DATABASE_URL when present', () => {
+    expect(getRequiredDatabaseUrl({ STORAGE_DATABASE_URL: 'postgres://storage' } as NodeJS.ProcessEnv)).toBe(
+      'postgres://storage',
+    )
   })
 
   it('getRequiredDatabaseUrl throws when no database url is provided', () => {
     expect(() => getRequiredDatabaseUrl({} as NodeJS.ProcessEnv)).toThrow(
-      'DATABASE_URL (or STORAGE_DATABASE_URL) is required in all environments.',
+      'STORAGE_DATABASE_URL is required in all environments.',
     )
   })
 
   it('runMigrations uses neon migrator', async () => {
-    process.env.DATABASE_URL = 'postgres://example'
+    process.env.STORAGE_DATABASE_URL = 'postgres://example'
 
     await runMigrations()
 
@@ -60,7 +55,7 @@ describe('migrate configuration', () => {
   })
 
   it('runMigrations fails fast without database url', async () => {
-    await expect(runMigrations()).rejects.toThrow('DATABASE_URL (or STORAGE_DATABASE_URL) is required in all environments.')
+    await expect(runMigrations()).rejects.toThrow('STORAGE_DATABASE_URL is required in all environments.')
 
     expect(neonSpy).not.toHaveBeenCalled()
   })

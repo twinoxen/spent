@@ -1,6 +1,10 @@
 import type { Config } from 'drizzle-kit'
 
-const databaseUrl = process.env.STORAGE_DATABASE_URL ?? process.env.DATABASE_URL ?? ''
+const databaseUrl = process.env.STORAGE_DATABASE_URL
+
+if (!databaseUrl) {
+  throw new Error('STORAGE_DATABASE_URL is required to run drizzle-kit commands.')
+}
 
 const parsedUrl = (() => {
   try {

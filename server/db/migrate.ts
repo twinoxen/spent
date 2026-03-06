@@ -1,10 +1,10 @@
 import { join } from 'path'
 
 export function getRequiredDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string {
-  const databaseUrl = env.STORAGE_DATABASE_URL ?? env.DATABASE_URL
+  const databaseUrl = env.STORAGE_DATABASE_URL
 
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL (or STORAGE_DATABASE_URL) is required in all environments.')
+    throw new Error('STORAGE_DATABASE_URL is required in all environments.')
   }
 
   return databaseUrl

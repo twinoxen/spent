@@ -3,7 +3,7 @@
  * and recompute fingerprints for all affected rows.
  *
  * Run with: node scripts/migrate-dates-to-iso.mjs
- * Requires DATABASE_URL (or STORAGE_DATABASE_URL).
+ * Requires STORAGE_DATABASE_URL.
  */
 
 import { sha256 } from '@noble/hashes/sha2.js'
@@ -25,16 +25,16 @@ function generateFingerprint(transactionDate, description, amount, purchasedBy) 
 }
 
 async function run() {
-  const databaseUrl = process.env.STORAGE_DATABASE_URL ?? process.env.DATABASE_URL
+  const databaseUrl = process.env.STORAGE_DATABASE_URL
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL (or STORAGE_DATABASE_URL) is required.')
+    throw new Error('STORAGE_DATABASE_URL is required.')
   }
 
   const { neon } = await import('@neondatabase/serverless')
   const sql = neon(databaseUrl)
   const query = async (text, params) => ({ rows: await sql.query(text, params) })
 
-  console.log('Using Postgres via DATABASE_URL/STORAGE_DATABASE_URL.')
+  console.log('Using Postgres via STORAGE_DATABASE_URL.')
 
   const { rows: txns } = await query(
     `SELECT id, transaction_date, clearing_date, description, amount, purchased_by
