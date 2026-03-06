@@ -3,6 +3,6 @@ set -euo pipefail
 
 docker compose down -v
 
-docker compose up -d postgres
+scripts/dev-db-up.sh
 
-echo "Local postgres reset complete (volume recreated)."
+echo "Local postgres reset complete (volume recreated, postgres healthy)."

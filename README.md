@@ -50,10 +50,10 @@ npm run dev
 ## DB scripts
 
 ```bash
-npm run db:up           # start postgres container
+npm run db:up           # start postgres container and wait until healthy
 npm run db:down         # stop containers
 npm run db:migrate      # apply drizzle migrations (requires STORAGE_DATABASE_URL)
-npm run db:reset-local  # reset local postgres volume
+npm run db:reset-local  # reset local postgres volume and wait until healthy
 npm run db:reset        # reset local db + run migrations
 ```
 
