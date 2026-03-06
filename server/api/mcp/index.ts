@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { eq, desc, and, not, sql, inArray, isNull, or } from 'drizzle-orm'
 import { getDb } from '../../db'
 import { transactions, accounts, categories, merchants, merchantRules } from '../../db/schema'
+import { upsertOpeningBalanceTransaction } from '../../utils/openingBalance'
 import { buildTransactionWhereClause } from '../../utils/transactionFilters'
 import { generateFingerprint } from '../../utils/fingerprint'
 import { toCsv } from '../../utils/exportFormats'
@@ -29,16 +30,9 @@ function buildMcpServer(userId: number) {
         creditLimit: accounts.creditLimit,
         apr: accounts.apr,
         transactionCount: sql<number>`count(${transactions.id})`,
-        txSumAfterSnapshot: sql<number | null>`
-          sum(
-            case
-              when ${accounts.balanceAsOfDate} is not null
-                and ${transactions.transactionDate} > ${accounts.balanceAsOfDate}
-              then ${transactions.amount}
-              else null
-            end
-          )
-        `,
+        totalTxAmount: sql<number | null>`sum(${transactions.amount})`,
+        openingTxAmount: sql<number | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.amount} else null end)`,
+        openingTxDate: sql<string | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.transactionDate} else null end)`,
       })
       .from(accounts)
       .leftJoin(transactions, eq(transactions.accountId, accounts.id))
@@ -61,9 +55,11 @@ function buildMcpServer(userId: number) {
     balanceAsOfDate: z.string().nullable().optional().describe('YYYY-MM-DD'),
     creditLimit: z.number().nullable().optional(),
     apr: z.number().nullable().optional(),
+    openingBalance: z.number().nullable().optional(),
+    openingBalanceDate: z.string().nullable().optional().describe('YYYY-MM-DD'),
   }, async (args) => {
     const db = await getDb()
-    const { id, ...fields } = args
+    const { id, openingBalance, openingBalanceDate, ...fields } = args
     const updates: Record<string, unknown> = {}
     if (fields.name !== undefined) updates.name = fields.name.trim()
     if (fields.type !== undefined) updates.type = fields.type
@@ -74,18 +70,53 @@ function buildMcpServer(userId: number) {
     if (fields.creditLimit !== undefined) updates.creditLimit = fields.creditLimit
     if (fields.apr !== undefined) updates.apr = fields.apr
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(updates).length === 0 && openingBalance === undefined && openingBalanceDate === undefined) {
       return { isError: true, content: [{ type: 'text', text: 'No fields to update.' }] }
     }
 
-    const [updated] = await db
-      .update(accounts)
-      .set(updates)
-      .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
-      .returning()
+    let updated
+    if (Object.keys(updates).length > 0) {
+      ;[updated] = await db
+        .update(accounts)
+        .set(updates)
+        .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+        .returning()
+    } else {
+      ;[updated] = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+        .limit(1)
+    }
 
     if (!updated) {
       return { isError: true, content: [{ type: 'text', text: 'Account not found or does not belong to you.' }] }
+    }
+
+    if (openingBalance !== undefined || openingBalanceDate !== undefined) {
+      if (openingBalance !== undefined) {
+        await upsertOpeningBalanceTransaction(db, {
+          accountId: id,
+          accountType: updated.type,
+          openingBalance: openingBalance ?? null,
+          openingBalanceDate: openingBalanceDate?.trim() ?? null,
+        })
+      } else {
+        const [openingTx] = await db
+          .select({ amount: transactions.amount })
+          .from(transactions)
+          .where(and(eq(transactions.accountId, id), eq(transactions.isOpeningBalance, true)))
+          .limit(1)
+
+        if (openingTx) {
+          await upsertOpeningBalanceTransaction(db, {
+            accountId: id,
+            accountType: updated.type,
+            openingBalance: updated.type === 'credit_card' ? -openingTx.amount : openingTx.amount,
+            openingBalanceDate: openingBalanceDate?.trim() ?? null,
+          })
+        }
+      }
     }
 
     return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
@@ -117,6 +148,8 @@ function buildMcpServer(userId: number) {
     balanceAsOfDate: z.string().optional().describe('Date of the balance snapshot in YYYY-MM-DD format'),
     creditLimit: z.number().optional().describe('Total credit limit (credit cards only)'),
     apr: z.number().optional().describe('Annual percentage rate, e.g. 24.99 (credit cards only)'),
+    openingBalance: z.number().optional().describe('Opening balance anchor for calculated balance'),
+    openingBalanceDate: z.string().optional().describe('Opening balance date in YYYY-MM-DD format'),
   }, async (args) => {
     const db = await getDb()
     const isCreditCard = args.type === 'credit_card'
@@ -131,6 +164,16 @@ function buildMcpServer(userId: number) {
       creditLimit: isCreditCard ? (args.creditLimit ?? null) : null,
       apr: isCreditCard ? (args.apr ?? null) : null,
     }).returning()
+
+    if (args.openingBalance !== undefined) {
+      await upsertOpeningBalanceTransaction(db, {
+        accountId: created.id,
+        accountType: args.type,
+        openingBalance: args.openingBalance,
+        openingBalanceDate: args.openingBalanceDate ?? null,
+      })
+    }
+
     return { content: [{ type: 'text', text: JSON.stringify(created, null, 2) }] }
   })
 

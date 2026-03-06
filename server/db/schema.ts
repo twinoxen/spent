@@ -93,6 +93,7 @@ export const transactions = pgTable('transactions', {
   notes: text('notes'),
   tags: jsonb('tags').$type<string[]>().default(sql`'[]'::jsonb`),
   isPending: boolean('is_pending').default(false),
+  isOpeningBalance: boolean('is_opening_balance').notNull().default(false),
   isDuplicateFlagged: boolean('is_duplicate_flagged').default(false),
   importSessionId: integer('import_session_id').references(() => importSessions.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').default(sql`now()`),

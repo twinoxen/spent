@@ -90,7 +90,7 @@
           <template v-if="account.type === 'credit_card'">
             <div class="flex items-end justify-between mb-2">
               <div>
-                <p class="text-xl font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(account.adjustedBalance) }}</p>
+                <p class="text-xl font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(account.calculatedBalance) }}</p>
                 <p class="text-xs text-gray-400 dark:text-gray-500">owed</p>
               </div>
               <div class="text-right">
@@ -125,7 +125,7 @@
 
           <!-- Checking / Savings / Debit layout -->
           <template v-else>
-            <p class="text-xl font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(account.adjustedBalance) }}</p>
+            <p class="text-xl font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(account.calculatedBalance) }}</p>
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">available balance</p>
             <!-- Stale balance warning -->
             <p v-if="isStaleBalance(account.balanceAsOfDate)" class="text-xs text-amber-500 dark:text-amber-400 mt-1.5">
@@ -168,11 +168,11 @@ const props = defineProps<{
 }>()
 
 const accountsWithBalance = computed(() =>
-  props.accounts.filter(a => a.adjustedBalance !== null)
+  props.accounts.filter(a => a.calculatedBalance !== null)
 )
 
 const accountsWithoutBalance = computed(() =>
-  props.accounts.filter(a => a.adjustedBalance === null)
+  props.accounts.filter(a => a.calculatedBalance === null)
 )
 
 const summary = computed(() => {
@@ -182,13 +182,13 @@ const summary = computed(() => {
   let hasAnyBalance = false
 
   for (const account of props.accounts) {
-    if (account.adjustedBalance === null) continue
+    if (account.calculatedBalance === null) continue
     hasAnyBalance = true
     if (CREDIT_TYPES.has(account.type)) {
-      totalDebt += account.adjustedBalance
+      totalDebt += account.calculatedBalance
       if (account.creditLimit) totalCreditLimit += account.creditLimit
     } else if (ASSET_TYPES.has(account.type)) {
-      totalAssets += account.adjustedBalance
+      totalAssets += account.calculatedBalance
     }
   }
 

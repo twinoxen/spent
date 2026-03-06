@@ -1,6 +1,6 @@
 import { getDb } from '../../db'
 import { accounts, transactions } from '../../db/schema'
-import { and, eq, gt, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { computeAccountBalance, type RawAccountRow } from '../../utils/computeBalances'
 
 export default defineEventHandler(async (event) => {
@@ -21,16 +21,9 @@ export default defineEventHandler(async (event) => {
       apr: accounts.apr,
       createdAt: accounts.createdAt,
       transactionCount: sql<number>`count(${transactions.id})`,
-      txSumAfterSnapshot: sql<number | null>`
-        sum(
-          case
-            when ${accounts.balanceAsOfDate} is not null
-              and ${transactions.transactionDate} > ${accounts.balanceAsOfDate}
-            then ${transactions.amount}
-            else null
-          end
-        )
-      `,
+      totalTxAmount: sql<number | null>`sum(${transactions.amount})`,
+      openingTxAmount: sql<number | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.amount} else null end)`,
+      openingTxDate: sql<string | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.transactionDate} else null end)`,
     })
     .from(accounts)
     .leftJoin(transactions, eq(transactions.accountId, accounts.id))

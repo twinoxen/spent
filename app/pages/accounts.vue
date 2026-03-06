@@ -67,20 +67,19 @@
           </div>
 
           <!-- Balance Section -->
-          <div v-if="account.adjustedBalance !== null" class="mb-3">
+          <div v-if="account.calculatedBalance !== null" class="mb-3">
             <!-- Credit Card: utilization bar -->
             <template v-if="account.type === 'credit_card'">
               <div class="flex items-end justify-between mb-1.5">
                 <div>
-                  <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.adjustedBalance) }}</p>
-                  <p class="text-xs opacity-75">owed of {{ formatCurrency(account.creditLimit) }} limit</p>
+                  <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.calculatedBalance) }}</p>
+                  <p class="text-xs opacity-75">calculated debt · {{ formatCurrency(account.creditLimit) }} limit</p>
                 </div>
                 <div class="text-right">
                   <p class="text-sm font-semibold tabular-nums">{{ formatPercent(account.utilization) }}</p>
                   <p class="text-xs opacity-75">utilized</p>
                 </div>
               </div>
-              <!-- Utilization bar -->
               <div class="h-1.5 rounded-full bg-white/30 overflow-hidden">
                 <div
                   class="h-full rounded-full transition-all"
@@ -90,19 +89,22 @@
               </div>
               <p v-if="account.apr" class="text-xs opacity-60 mt-1">{{ account.apr }}% APR</p>
             </template>
-            <!-- Checking/Savings/Debit: simple balance -->
             <template v-else>
-              <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.adjustedBalance) }}</p>
-              <p class="text-xs opacity-75">available balance</p>
+              <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.calculatedBalance) }}</p>
+              <p class="text-xs opacity-75">calculated balance</p>
             </template>
+
+            <div v-if="account.currentBalance !== null" class="mt-2 text-xs opacity-80">
+              <p>Snapshot: {{ formatCurrency(account.currentBalance) }} <span v-if="account.balanceAsOfDate">(as of {{ account.balanceAsOfDate }})</span></p>
+              <p>Delta: {{ formatSignedCurrency(account.delta) }}</p>
+            </div>
           </div>
-          <!-- No balance set prompt -->
           <div v-else class="mb-3">
             <button
               class="text-xs opacity-60 hover:opacity-90 underline decoration-dotted transition-opacity"
               @click="openEdit(account)"
             >
-              Set balance →
+              Set opening balance →
             </button>
           </div>
 
@@ -190,13 +192,44 @@
             />
           </div>
 
-          <!-- Balance snapshot fields -->
+          <!-- Opening balance anchor -->
           <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Balance</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Opening Balance Anchor</p>
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
-                  {{ form.type === 'credit_card' ? 'Current Balance Owed' : 'Current Balance' }}
+                  {{ form.type === 'credit_card' ? 'Opening Balance Owed' : 'Opening Balance' }}
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    v-model="form.openingBalance"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    class="w-full pl-7 pr-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Opening Date</label>
+                <input
+                  v-model="form.openingBalanceDate"
+                  type="date"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Reconciliation snapshot fields -->
+          <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Reconciliation Snapshot</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                  {{ form.type === 'credit_card' ? 'Statement Balance Owed' : 'Statement Balance' }}
                 </label>
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
@@ -343,6 +376,12 @@ function formatPercent(value: number | null | undefined): string {
   return `${Math.round(value * 100)}%`
 }
 
+function formatSignedCurrency(value: number | null | undefined): string {
+  if (value == null) return '—'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${formatCurrency(value)}`
+}
+
 function utilizationBarClass(utilization: number | null | undefined): string {
   if (utilization == null) return 'bg-white/60'
   if (utilization >= 0.75) return 'bg-red-300'
@@ -400,6 +439,8 @@ const form = ref({
   institution: '',
   lastFour: '',
   color: PRESET_COLORS[0],
+  openingBalance: '' as string | number,
+  openingBalanceDate: today(),
   currentBalance: '' as string | number,
   balanceAsOfDate: today(),
   creditLimit: '' as string | number,
@@ -419,7 +460,7 @@ async function loadAccounts() {
 
 function openCreate() {
   editingAccount.value = null
-  form.value = { name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0], currentBalance: '', balanceAsOfDate: today(), creditLimit: '', apr: '' }
+  form.value = { name: '', type: 'credit_card', institution: '', lastFour: '', color: PRESET_COLORS[0], openingBalance: '', openingBalanceDate: today(), currentBalance: '', balanceAsOfDate: today(), creditLimit: '', apr: '' }
   institutionDropdownOpen.value = false
   loadInstitutions()
   modalOpen.value = true
@@ -433,6 +474,8 @@ function openEdit(account: any) {
     institution: account.institution ?? '',
     lastFour: account.lastFour ?? '',
     color: account.color ?? PRESET_COLORS[0],
+    openingBalance: account.openingBalance ?? '',
+    openingBalanceDate: account.openingBalanceDate ?? today(),
     currentBalance: account.currentBalance ?? '',
     balanceAsOfDate: account.balanceAsOfDate ?? today(),
     creditLimit: account.creditLimit ?? '',
@@ -453,6 +496,8 @@ async function saveAccount() {
       institution: form.value.institution || null,
       lastFour: form.value.lastFour || null,
       color: form.value.color,
+      openingBalance: form.value.openingBalance !== '' ? Number(form.value.openingBalance) : null,
+      openingBalanceDate: form.value.openingBalanceDate || null,
       currentBalance: form.value.currentBalance !== '' ? Number(form.value.currentBalance) : null,
       balanceAsOfDate: form.value.balanceAsOfDate || null,
       creditLimit: isCreditCard && form.value.creditLimit !== '' ? Number(form.value.creditLimit) : null,
