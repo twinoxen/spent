@@ -1,5 +1,6 @@
 import { getDb } from '../../db'
 import { accounts } from '../../db/schema'
+import { upsertOpeningBalanceTransaction } from '../../utils/openingBalance'
 
 export default defineEventHandler(async (event) => {
   const db = await getDb()
@@ -25,6 +26,16 @@ export default defineEventHandler(async (event) => {
     creditLimit: isCreditCard && body.creditLimit != null ? Number(body.creditLimit) : null,
     apr: isCreditCard && body.apr != null ? Number(body.apr) : null,
   }).returning()
+
+  const openingBalance = body.openingBalance != null ? Number(body.openingBalance) : null
+  if (openingBalance !== null) {
+    await upsertOpeningBalanceTransaction(db, {
+      accountId: account.id,
+      accountType: type,
+      openingBalance,
+      openingBalanceDate: body.openingBalanceDate?.trim() || null,
+    })
+  }
 
   return account
 })

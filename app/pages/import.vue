@@ -368,6 +368,8 @@ async function createAndSelectAccount() {
         institution: newAccount.value.institution || null,
         lastFour: newAccount.value.lastFour || null,
         color: newAccount.value.color,
+        openingBalance: newAccount.value.currentBalance !== '' ? Number(newAccount.value.currentBalance) : null,
+        openingBalanceDate: newAccount.value.balanceAsOfDate || null,
         currentBalance: newAccount.value.currentBalance !== '' ? Number(newAccount.value.currentBalance) : null,
         balanceAsOfDate: newAccount.value.balanceAsOfDate || null,
         creditLimit: isCreditCard && newAccount.value.creditLimit !== '' ? Number(newAccount.value.creditLimit) : null,

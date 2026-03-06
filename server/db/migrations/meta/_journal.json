@@ -57,6 +57,13 @@
       "when": 1772684726152,
       "tag": "0007_absurd_deadpool",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772780000000,
+      "tag": "0008_opening_balance_anchor",
+      "breakpoints": true
     }
   ]
 }
