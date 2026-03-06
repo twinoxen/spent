@@ -2,21 +2,22 @@
  * Balance model
  *
  * Transactions use signed amounts:
- *   amount > 0  → money in (income / deposits / credit card payments)
- *   amount < 0  → money out (expenses / charges)
+ *   amount > 0  → inflow (income / deposits / credit card payments / refunds)
+ *   amount < 0  → outflow (expenses / charges)
  *
  * Invariant:
- *   - credit card balances represent debt owed as a positive number
- *   - credit card charges are negative transactions
- *   - credit card payments / credits are positive transactions
+ *   - checking/savings/debit balances represent cash available
+ *   - credit card balances represent debt owed (positive means you owe money)
+ *   - opening balance anchors are stored as positive values for all account types
  *
  * Calculated balance includes both posted and pending transactions.
  *
- * For all account types:
- *   calculatedBalance = sum(posted amounts) + sum(pending amounts)
+ * Semantics:
+ *   - assets (checking/savings/debit): calculated = opening + cashflow
+ *   - credit cards (debt):          calculated = openingDebt - cashflow
  *
  * Optional reconciliation snapshot:
- *   currentBalance + balanceAsOfDate are user-entered bank snapshots.
+ *   currentBalance + balanceAsOfDate are user-entered snapshots.
  *   delta = calculatedBalance - currentBalance (only when snapshot exists)
  */
 
@@ -61,6 +62,7 @@ export interface RawAccountRow {
   totalTxAmount: number | null // backward compatibility
   postedTxAmount?: number | null
   pendingTxAmount?: number | null
+  anchoredTxAmount?: number | null
   openingTxAmount: number | null
   openingTxDate: string | null
 }
@@ -71,24 +73,48 @@ export function computeAccountBalance(row: RawAccountRow): AccountWithBalance {
   let availableCredit: number | null = null
   let utilization: number | null = null
 
+  const isCreditCard = CREDIT_TYPES.has(row.type)
+  const openingBalance = row.openingTxAmount === null ? null : row.openingTxAmount
+
   if (row.transactionCount > 0) {
-    const posted = row.postedTxAmount
-    const pending = row.pendingTxAmount
-    const txSum = (posted ?? 0) + (pending ?? 0)
-    const fallbackSum = row.totalTxAmount ?? 0
-    calculatedBalance = (posted === undefined && pending === undefined) ? fallbackSum : txSum
+    if (row.anchoredTxAmount !== undefined) {
+      // anchoredTxAmount currently contains:
+      //   opening + sum(non-opening tx after anchor cutoff) when opening exists
+      //   sum(all tx) when opening is absent
+      const anchoredAggregate = row.anchoredTxAmount ?? 0
+
+      if (isCreditCard) {
+        calculatedBalance = openingBalance === null
+          ? -anchoredAggregate
+          : (2 * openingBalance) - anchoredAggregate
+      } else {
+        calculatedBalance = anchoredAggregate
+      }
+    } else {
+      const posted = row.postedTxAmount
+      const pending = row.pendingTxAmount
+      const txSum = (posted === undefined && pending === undefined)
+        ? (row.totalTxAmount ?? 0)
+        : (posted ?? 0) + (pending ?? 0)
+
+      if (isCreditCard) {
+        calculatedBalance = openingBalance === null
+          ? -txSum
+          : (2 * openingBalance) - txSum
+      } else {
+        calculatedBalance = txSum
+      }
+    }
   }
 
   if (calculatedBalance !== null && row.currentBalance !== null) {
     delta = calculatedBalance - row.currentBalance
   }
 
-  if (CREDIT_TYPES.has(row.type) && calculatedBalance !== null && row.creditLimit !== null && row.creditLimit > 0) {
+  if (isCreditCard && calculatedBalance !== null && row.creditLimit !== null && row.creditLimit > 0) {
     availableCredit = row.creditLimit - calculatedBalance
     utilization = calculatedBalance / row.creditLimit
   }
-
-  const openingBalance = row.openingTxAmount === null ? null : row.openingTxAmount
 
   return {
     id: row.id,
