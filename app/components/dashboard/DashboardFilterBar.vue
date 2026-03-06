@@ -1,27 +1,29 @@
 <template>
   <UCard class="mb-6">
-    <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3">
       <!-- Date Range Segments -->
-      <div class="flex items-center gap-2.5">
+      <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-2.5">
         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Range</span>
-        <div class="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5 gap-0.5">
-          <button
-            v-for="range in dateRanges"
-            :key="range.value"
-            class="px-3 py-1.5 text-sm font-medium rounded-md transition-all"
-            :class="dateRange === range.value
-              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
-            @click="emit('set-date-range', range.value)"
-          >
-            {{ range.label }}
-          </button>
+        <div class="flex max-w-full overflow-x-auto rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+          <div class="flex gap-0.5">
+            <button
+              v-for="range in dateRanges"
+              :key="range.value"
+              class="flex-none px-3 py-1.5 text-sm font-medium rounded-md transition-all"
+              :class="dateRange === range.value
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+              @click="emit('set-date-range', range.value)"
+            >
+              {{ range.label }}
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Period Navigator (hidden for All) -->
       <template v-if="dateRange !== 'all'">
-        <div class="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+        <div class="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 sm:block" />
         <div class="flex items-center gap-0.5">
           <button
             class="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 dark:text-gray-500 transition-colors"
@@ -42,16 +44,16 @@
         </div>
       </template>
 
-      <div class="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+      <div class="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 sm:block" />
 
       <!-- Person Toggles -->
-      <div v-if="availablePurchasers.length > 0" class="flex items-center gap-2.5">
+      <div v-if="availablePurchasers.length > 0" class="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2.5">
         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Person</span>
-        <div class="flex gap-1.5">
+        <div class="flex w-full gap-1.5 overflow-x-auto pb-1 sm:w-auto sm:pb-0">
           <button
             v-for="person in availablePurchasers"
             :key="person"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all"
+            class="flex flex-none items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all"
             :class="selectedPerson === person
               ? 'border-transparent text-white'
               : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 bg-transparent'"
@@ -70,14 +72,14 @@
       </div>
 
       <!-- Account Toggles -->
-      <div v-if="availableAccounts.length > 0" class="flex items-center gap-2.5">
-        <div class="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+      <div v-if="availableAccounts.length > 0" class="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2.5">
+        <div class="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 sm:block" />
         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Account</span>
-        <div class="flex gap-1.5">
+        <div class="flex w-full gap-1.5 overflow-x-auto pb-1 sm:w-auto sm:pb-0">
           <button
             v-for="account in availableAccounts"
             :key="account.id"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all"
+            class="flex flex-none items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all"
             :class="selectedAccountIds.includes(account.id)
               ? 'border-transparent text-white'
               : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 bg-transparent'"
@@ -96,7 +98,7 @@
       </div>
 
       <!-- Loading spinner -->
-      <div v-if="loading && hasStats" class="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+      <div v-if="loading && hasStats" class="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 sm:ml-auto">
         <div class="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary-500" />
         Updating…
       </div>
