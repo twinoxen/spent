@@ -9,12 +9,11 @@ import { buildTransactionWhereClause } from '../../utils/transactionFilters'
 import { generateFingerprint } from '../../utils/fingerprint'
 import { toCsv } from '../../utils/exportFormats'
 import { interAccountTransferCondition } from '../../utils/transferExclusion'
-
-function isMissingOpeningBalanceColumn(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const pgError = error as { code?: string; message?: string }
-  return pgError.code === '42703' && (pgError.message?.includes('is_opening_balance') ?? false)
-}
+import {
+  getOpeningBalanceColumnExists,
+  isMissingOpeningBalanceColumn,
+  logAccountsQueryError,
+} from '../../utils/openingBalanceSupport'
 
 function buildMcpServer(userId: number) {
   const server = new McpServer({ name: 'spent', version: '1.0.0' })
@@ -91,12 +90,22 @@ function buildMcpServer(userId: number) {
       .groupBy(accounts.id)
       .orderBy(accounts.name)
 
+    const supportsOpeningBalance = await getOpeningBalanceColumnExists(db)
+
     let results
     try {
-      results = await buildAccountQuery(true)
+      results = await buildAccountQuery(supportsOpeningBalance)
     } catch (error) {
-      if (!isMissingOpeningBalanceColumn(error)) throw error
-      results = await buildAccountQuery(false)
+      logAccountsQueryError('mcp/list_accounts', error, 'primary')
+
+      if (!supportsOpeningBalance || !isMissingOpeningBalanceColumn(error)) throw error
+
+      try {
+        results = await buildAccountQuery(false)
+      } catch (fallbackError) {
+        logAccountsQueryError('mcp/list_accounts', fallbackError, 'fallback')
+        throw fallbackError
+      }
     }
 
     const { computeAccountBalance } = await import('../../utils/computeBalances')

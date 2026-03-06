@@ -2,12 +2,11 @@ import { getDb } from '../../db'
 import { accounts, transactions } from '../../db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { computeAccountBalance, type RawAccountRow } from '../../utils/computeBalances'
-
-function isMissingOpeningBalanceColumn(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const pgError = error as { code?: string; message?: string }
-  return pgError.code === '42703' && (pgError.message?.includes('is_opening_balance') ?? false)
-}
+import {
+  getOpeningBalanceColumnExists,
+  isMissingOpeningBalanceColumn,
+  logAccountsQueryError,
+} from '../../utils/openingBalanceSupport'
 
 export default defineEventHandler(async (event) => {
   const db = await getDb()
@@ -81,12 +80,24 @@ export default defineEventHandler(async (event) => {
     .groupBy(accounts.id)
     .orderBy(accounts.name)
 
+  const supportsOpeningBalance = await getOpeningBalanceColumnExists(db)
+
   let results
   try {
-    results = await buildAccountQuery(true)
+    results = await buildAccountQuery(supportsOpeningBalance)
   } catch (error) {
-    if (!isMissingOpeningBalanceColumn(error)) throw error
-    results = await buildAccountQuery(false)
+    logAccountsQueryError('api/accounts', error, 'primary')
+
+    if (!supportsOpeningBalance || !isMissingOpeningBalanceColumn(error)) {
+      throw error
+    }
+
+    try {
+      results = await buildAccountQuery(false)
+    } catch (fallbackError) {
+      logAccountsQueryError('api/accounts', fallbackError, 'fallback')
+      throw fallbackError
+    }
   }
 
   return results.map(row => computeAccountBalance(row as RawAccountRow))
