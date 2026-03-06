@@ -6,7 +6,7 @@ export default defineEventHandler(async () => {
   const runtime = getDbRuntimeInfo()
 
   let transactionsIsOpeningBalanceExists: boolean | null = null
-  let latestMigration: Record<string, unknown> | null = null
+  let drizzleMigrationsTableExists: boolean | null = null
   let errors: Record<string, string> = {}
 
   try {
@@ -26,16 +26,18 @@ export default defineEventHandler(async () => {
   }
 
   try {
-    const migrationResult = await db.execute(sql`
-      select *
-      from "__drizzle_migrations"
-      order by id desc
-      limit 1
+    const migrationTableResult = await db.execute<{ exists: boolean }>(sql`
+      select exists (
+        select 1
+        from information_schema.tables
+        where table_schema = 'public'
+          and table_name = '__drizzle_migrations'
+      ) as "exists"
     `)
-    const rows = (migrationResult as any)?.rows ?? migrationResult
-    latestMigration = rows?.[0] ?? null
+    const rows = (migrationTableResult as any)?.rows ?? migrationTableResult
+    drizzleMigrationsTableExists = Boolean(rows?.[0]?.exists)
   } catch (error) {
-    errors.latestMigration = (error as any)?.message ?? 'latest-migration-unavailable'
+    errors.migrationTableCheck = (error as any)?.message ?? 'migration-table-check-failed'
   }
 
   if (Object.keys(errors).length === 0) {
@@ -44,13 +46,13 @@ export default defineEventHandler(async () => {
 
   return {
     env: {
-      DATABASE_URL: runtime.databaseUrlSet ? '[set]' : '[not set]',
-      STORAGE_DATABASE_URL: runtime.storageDatabaseUrlSet ? '[set]' : '[not set]',
+      databaseUrlSet: runtime.databaseUrlSet,
+      storageDatabaseUrlSet: runtime.storageDatabaseUrlSet,
     },
     driver: runtime.resolvedDriverPath,
     checks: {
       transactionsIsOpeningBalanceExists,
-      latestMigration,
+      drizzleMigrationsTableExists,
     },
     ...(Object.keys(errors).length > 0 ? { errors } : {}),
   }
