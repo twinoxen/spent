@@ -71,7 +71,7 @@ export default defineEventHandler(async (event) => {
         .limit(1)
 
       if (openingTx) {
-        const openingBalance = accountType === 'credit_card' ? -openingTx.amount : openingTx.amount
+        const openingBalance = openingTx.amount
         await upsertOpeningBalanceTransaction(db, {
           accountId: id,
           accountType,

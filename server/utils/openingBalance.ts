@@ -2,8 +2,9 @@ import { and, eq } from 'drizzle-orm'
 import { accounts, transactions } from '../db/schema'
 import { generateFingerprint } from './fingerprint'
 
-function toStoredOpeningAmount(accountType: string, openingBalance: number): number {
-  return accountType === 'credit_card' ? -Math.abs(openingBalance) : openingBalance
+function toStoredOpeningAmount(_accountType: string, openingBalance: number): number {
+  // Opening-balance anchors are stored as positive values for all account types.
+  return Math.abs(openingBalance)
 }
 
 export async function upsertOpeningBalanceTransaction(

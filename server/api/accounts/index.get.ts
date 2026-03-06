@@ -22,6 +22,8 @@ export default defineEventHandler(async (event) => {
       createdAt: accounts.createdAt,
       transactionCount: sql<number>`count(${transactions.id})`,
       totalTxAmount: sql<number | null>`sum(${transactions.amount})`,
+      postedTxAmount: sql<number | null>`sum(case when ${transactions.isPending} then 0 else ${transactions.amount} end)`,
+      pendingTxAmount: sql<number | null>`sum(case when ${transactions.isPending} then ${transactions.amount} else 0 end)`,
       openingTxAmount: sql<number | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.amount} else null end)`,
       openingTxDate: sql<string | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.transactionDate} else null end)`,
     })

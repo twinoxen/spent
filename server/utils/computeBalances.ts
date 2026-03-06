@@ -5,13 +5,15 @@
  *   amount > 0  → money in (income / deposits / credit card payments)
  *   amount < 0  → money out (expenses / charges)
  *
- * Calculated balance is derived from ALL transactions and updates immediately.
+ * Invariant:
+ *   - credit card balances represent debt owed as a positive number
+ *   - credit card charges are negative transactions
+ *   - credit card payments / credits are positive transactions
  *
- * For checking/savings/debit/investment/other:
- *   calculatedBalance = sum(transactions.amount)
+ * Calculated balance includes both posted and pending transactions.
  *
- * For credit cards (balance means debt owed):
- *   calculatedBalance = -sum(transactions.amount)
+ * For all account types:
+ *   calculatedBalance = sum(posted amounts) + sum(pending amounts)
  *
  * Optional reconciliation snapshot:
  *   currentBalance + balanceAsOfDate are user-entered bank snapshots.
@@ -56,7 +58,9 @@ export interface RawAccountRow {
   apr: number | null
   createdAt: Date | null
   transactionCount: number
-  totalTxAmount: number | null
+  totalTxAmount: number | null // backward compatibility
+  postedTxAmount?: number | null
+  pendingTxAmount?: number | null
   openingTxAmount: number | null
   openingTxDate: string | null
 }
@@ -68,8 +72,11 @@ export function computeAccountBalance(row: RawAccountRow): AccountWithBalance {
   let utilization: number | null = null
 
   if (row.transactionCount > 0) {
-    const txSum = row.totalTxAmount ?? 0
-    calculatedBalance = CREDIT_TYPES.has(row.type) ? -txSum : txSum
+    const posted = row.postedTxAmount
+    const pending = row.pendingTxAmount
+    const txSum = (posted ?? 0) + (pending ?? 0)
+    const fallbackSum = row.totalTxAmount ?? 0
+    calculatedBalance = (posted === undefined && pending === undefined) ? fallbackSum : txSum
   }
 
   if (calculatedBalance !== null && row.currentBalance !== null) {
@@ -81,9 +88,7 @@ export function computeAccountBalance(row: RawAccountRow): AccountWithBalance {
     utilization = calculatedBalance / row.creditLimit
   }
 
-  const openingBalance = row.openingTxAmount === null
-    ? null
-    : CREDIT_TYPES.has(row.type) ? -row.openingTxAmount : row.openingTxAmount
+  const openingBalance = row.openingTxAmount === null ? null : row.openingTxAmount
 
   return {
     id: row.id,
