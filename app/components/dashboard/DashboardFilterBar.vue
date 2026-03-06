@@ -1,11 +1,11 @@
 <template>
   <UCard class="mb-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3">
+    <div class="flex max-w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3">
       <!-- Date Range Segments -->
-      <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-2.5">
+      <div class="flex max-w-full min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-2.5">
         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Range</span>
-        <div class="flex max-w-full overflow-x-auto rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
-          <div class="flex gap-0.5">
+        <div class="flex max-w-full rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+          <div class="flex max-w-full flex-wrap gap-0.5 sm:flex-nowrap">
             <button
               v-for="range in dateRanges"
               :key="range.value"
@@ -47,9 +47,9 @@
       <div class="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 sm:block" />
 
       <!-- Person Toggles -->
-      <div v-if="availablePurchasers.length > 0" class="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2.5">
+      <div v-if="availablePurchasers.length > 0" class="flex w-full max-w-full min-w-0 flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2.5">
         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Person</span>
-        <div class="flex w-full gap-1.5 overflow-x-auto pb-1 sm:w-auto sm:pb-0">
+        <div class="flex w-full max-w-full flex-wrap gap-1.5 pb-1 sm:w-auto sm:max-w-none sm:flex-nowrap sm:pb-0">
           <button
             v-for="person in availablePurchasers"
             :key="person"
@@ -72,10 +72,10 @@
       </div>
 
       <!-- Account Toggles -->
-      <div v-if="availableAccounts.length > 0" class="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2.5">
+      <div v-if="availableAccounts.length > 0" class="flex w-full max-w-full min-w-0 flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2.5">
         <div class="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 sm:block" />
         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Account</span>
-        <div class="flex w-full gap-1.5 overflow-x-auto pb-1 sm:w-auto sm:pb-0">
+        <div class="flex w-full max-w-full flex-wrap gap-1.5 pb-1 sm:w-auto sm:max-w-none sm:flex-nowrap sm:pb-0">
           <button
             v-for="account in availableAccounts"
             :key="account.id"
