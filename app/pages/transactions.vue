@@ -744,16 +744,25 @@
               @click="openEditModal(transaction)"
             >
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-                {{ formatDate(transaction.transactionDate) }}
+                <template v-if="isPendingTx(transaction)">
+                  <div class="inline-flex flex-col items-start gap-1">
+                    <span
+                      class="inline-flex items-center rounded-full border border-amber-200 dark:border-amber-800 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                      :aria-label="`Pending transaction from ${formatDate(transaction.transactionDate)}`"
+                    >
+                      Pending
+                    </span>
+                    <span class="text-[11px] text-gray-400 dark:text-gray-500">
+                      {{ formatDate(transaction.transactionDate) }}
+                    </span>
+                  </div>
+                </template>
+                <template v-else>
+                  {{ formatDate(transaction.clearingDate || transaction.transactionDate) }}
+                </template>
               </td>
               <td class="px-6 py-3 text-sm text-gray-900 dark:text-gray-100 max-w-[200px]">
                 <span class="block truncate" :title="transaction.description">{{ transaction.description }}</span>
-                <span
-                  v-if="transaction.isPending"
-                  class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
-                >
-                  Pending
-                </span>
               </td>
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                 {{ transaction.merchant?.name || '—' }}
@@ -1284,6 +1293,10 @@ async function saveEdit() {
   }
 }
 
+
+function isPendingTx(transaction: { isPending?: boolean | null, clearingDate?: string | null }) {
+  return Boolean(transaction.isPending) || !transaction.clearingDate
+}
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
