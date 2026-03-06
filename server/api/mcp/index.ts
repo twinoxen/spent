@@ -261,6 +261,8 @@ function buildMcpServer(userId: number) {
       .select({
         id: transactions.id,
         transactionDate: transactions.transactionDate,
+        clearingDate: transactions.clearingDate,
+        isPending: transactions.isPending,
         description: transactions.description,
         type: transactions.type,
         amount: transactions.amount,
@@ -276,7 +278,7 @@ function buildMcpServer(userId: number) {
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
       .leftJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(whereClause)
-      .orderBy(desc(transactions.transactionDate), desc(transactions.id))
+      .orderBy(desc(transactions.isPending), desc(transactions.transactionDate), desc(transactions.id))
       .limit(limit)
       .offset(args.offset ?? 0)
 

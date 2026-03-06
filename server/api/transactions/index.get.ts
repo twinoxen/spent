@@ -45,6 +45,7 @@ export default defineEventHandler(async (event) => {
       id: transactions.id,
       transactionDate: transactions.transactionDate,
       clearingDate: transactions.clearingDate,
+      isPending: transactions.isPending,
       description: transactions.description,
       type: transactions.type,
       amount: transactions.amount,

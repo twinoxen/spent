@@ -744,17 +744,15 @@
               @click="openEditModal(transaction)"
             >
               <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-                <template v-if="transaction.isPending">
+                <template v-if="isPendingTx(transaction)">
                   <div class="inline-flex flex-col items-start gap-1">
-                    <UTooltip :text="`Transaction date: ${formatDate(transaction.transactionDate)}`">
-                      <span
-                        class="inline-flex items-center rounded-full border border-amber-200 dark:border-amber-800 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
-                        :aria-label="`Pending transaction from ${formatDate(transaction.transactionDate)}`"
-                      >
-                        Pending
-                      </span>
-                    </UTooltip>
-                    <span class="hidden md:inline text-[11px] text-gray-400 dark:text-gray-500">
+                    <span
+                      class="inline-flex items-center rounded-full border border-amber-200 dark:border-amber-800 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                      :aria-label="`Pending transaction from ${formatDate(transaction.transactionDate)}`"
+                    >
+                      Pending
+                    </span>
+                    <span class="text-[11px] text-gray-400 dark:text-gray-500">
                       {{ formatDate(transaction.transactionDate) }}
                     </span>
                   </div>
@@ -1295,6 +1293,10 @@ async function saveEdit() {
   }
 }
 
+
+function isPendingTx(transaction: { isPending?: boolean | null, clearingDate?: string | null }) {
+  return Boolean(transaction.isPending) || !transaction.clearingDate
+}
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
