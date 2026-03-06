@@ -69,15 +69,15 @@
         </div>
       </div>
 
-      <!-- Account Toggles -->
-      <div v-if="availableAccounts.length > 0" class="flex items-center gap-2.5">
-        <div class="h-5 w-px bg-gray-200 dark:bg-gray-700" />
-        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Account</span>
-        <div class="flex gap-1.5">
+      <!-- Account Toggles (full-width row on mobile so pills can scroll) -->
+      <div v-if="availableAccounts.length > 0" class="flex items-center gap-2.5 min-w-0 w-full sm:w-auto basis-full sm:basis-auto">
+        <div class="h-5 w-px bg-gray-200 dark:bg-gray-700 flex-shrink-0 hidden sm:block" />
+        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex-shrink-0">Account</span>
+        <div class="flex gap-1.5 overflow-x-auto scrollbar-hide min-w-0 flex-1 -mx-1 px-1 sm:mx-0 sm:px-0">
           <button
             v-for="account in availableAccounts"
             :key="account.id"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap"
             :class="selectedAccountIds.includes(account.id)
               ? 'border-transparent text-white'
               : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 bg-transparent'"
