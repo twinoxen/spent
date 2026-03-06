@@ -11,12 +11,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:reset": "rm -rf ./data/finance.pgdata && drizzle-kit migrate",
+    "db:reset": "npm run db:reset-local && npm run db:migrate",
     "dev:fresh": "npm run db:reset && nuxt dev",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:up": "scripts/dev-db-up.sh",
+    "db:down": "docker compose down",
+    "db:reset-local": "scripts/dev-db-reset.sh"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.3.15",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@neondatabase/serverless": "^1.0.2",
     "@noble/hashes": "^2.0.1",
@@ -30,6 +32,7 @@
     "jose": "^6.1.3",
     "nuxt": "^4.3.1",
     "openai": "^6.25.0",
+    "pg": "^8.20.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
     "unpdf": "^1.4.0",
