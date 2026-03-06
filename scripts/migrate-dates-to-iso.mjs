@@ -3,19 +3,14 @@
  * and recompute fingerprints for all affected rows.
  *
  * Run with: node scripts/migrate-dates-to-iso.mjs
- * Uses DATABASE_URL (Neon) if set, otherwise falls back to PGlite at data/finance.pgdata.
+ * Requires DATABASE_URL (or STORAGE_DATABASE_URL).
  */
 
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { config } from 'dotenv'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
 
 config()
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const root = join(__dirname, '..')
 
 function mmddyyyyToIso(date) {
   const match = date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
@@ -31,25 +26,16 @@ function generateFingerprint(transactionDate, description, amount, purchasedBy) 
 
 async function run() {
   const databaseUrl = process.env.STORAGE_DATABASE_URL ?? process.env.DATABASE_URL
-
-  let query
-  if (databaseUrl) {
-    const { neon } = await import('@neondatabase/serverless')
-    const sql = neon(databaseUrl)
-    query = async (text, params) => ({ rows: await sql.query(text, params) })
-    console.log('Using Neon database.')
-  } else {
-    const { PGlite } = await import('@electric-sql/pglite')
-    const dbPath = process.env.DATABASE_PATH || join(root, 'data', 'finance.pgdata')
-    const client = new PGlite(dbPath)
-    query = async (text, params) => {
-      const result = await client.query(text, params)
-      return { rows: result.rows }
-    }
-    console.log(`Using PGlite at ${dbPath}.`)
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL (or STORAGE_DATABASE_URL) is required.')
   }
 
-  // ── transactions ─────────────────────────────────────────────────────────
+  const { neon } = await import('@neondatabase/serverless')
+  const sql = neon(databaseUrl)
+  const query = async (text, params) => ({ rows: await sql.query(text, params) })
+
+  console.log('Using Postgres via DATABASE_URL/STORAGE_DATABASE_URL.')
+
   const { rows: txns } = await query(
     `SELECT id, transaction_date, clearing_date, description, amount, purchased_by
      FROM transactions
@@ -85,7 +71,6 @@ async function run() {
   }
   console.log(`  Updated ${txnUpdated} transactions.`)
 
-  // ── staging_transactions ──────────────────────────────────────────────────
   const { rows: staged } = await query(
     `SELECT id, transaction_date, clearing_date, description, amount, purchased_by
      FROM staging_transactions
