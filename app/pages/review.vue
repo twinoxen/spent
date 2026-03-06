@@ -47,7 +47,7 @@
             </div>
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Total Amount</p>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ formatCurrency(totalAmount) }}</p>
+              <p class="text-2xl font-bold" :class="moneyValueToneClass(totalAmount)">{{ formatCurrency(totalAmount) }}</p>
             </div>
           </div>
 
@@ -104,7 +104,7 @@
                     </p>
                   </div>
                   <div class="text-right flex-shrink-0">
-                    <p class="text-lg font-bold text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(transaction.amount) }}</p>
+                    <p class="text-lg font-bold tabular-nums" :class="moneyValueToneClass(transaction.amount)">{{ formatCurrency(transaction.amount) }}</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500">{{ transaction.purchasedBy }}</p>
                   </div>
                 </div>

@@ -31,6 +31,8 @@ function buildMcpServer(userId: number) {
         apr: accounts.apr,
         transactionCount: sql<number>`count(${transactions.id})`,
         totalTxAmount: sql<number | null>`sum(${transactions.amount})`,
+        postedTxAmount: sql<number | null>`sum(case when ${transactions.isPending} then 0 else ${transactions.amount} end)`,
+        pendingTxAmount: sql<number | null>`sum(case when ${transactions.isPending} then ${transactions.amount} else 0 end)`,
         openingTxAmount: sql<number | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.amount} else null end)`,
         openingTxDate: sql<string | null>`max(case when ${transactions.isOpeningBalance} then ${transactions.transactionDate} else null end)`,
       })
@@ -112,7 +114,7 @@ function buildMcpServer(userId: number) {
           await upsertOpeningBalanceTransaction(db, {
             accountId: id,
             accountType: updated.type,
-            openingBalance: updated.type === 'credit_card' ? -openingTx.amount : openingTx.amount,
+            openingBalance: openingTx.amount,
             openingBalanceDate: openingBalanceDate?.trim() ?? null,
           })
         }

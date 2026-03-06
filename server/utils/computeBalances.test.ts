@@ -10,26 +10,28 @@ describe('computeAccountBalance', () => {
       institution: 'Apple',
       lastFour: '1234',
       color: '#6366f1',
-      currentBalance: 700,
+      currentBalance: 8000,
       balanceAsOfDate: '2026-03-05',
-      creditLimit: 5000,
+      creditLimit: 10000,
       apr: 24.99,
       createdAt: new Date('2026-03-01'),
       transactionCount: 3,
-      // Opening owed 1000 stored as -1000, charge -150, payment +200 => sum -950 => debt 950
-      totalTxAmount: -950,
-      openingTxAmount: -1000,
+      // Opening owed 6180.29 + payment 2000 - charges 9.07 = 8171.22 debt owed
+      totalTxAmount: 8171.22,
+      postedTxAmount: 8171.22,
+      pendingTxAmount: 0,
+      openingTxAmount: 6180.29,
       openingTxDate: '2026-03-01',
     })
 
-    expect(result.calculatedBalance).toBe(950)
-    expect(result.delta).toBe(250)
-    expect(result.openingBalance).toBe(1000)
-    expect(result.availableCredit).toBe(4050)
-    expect(result.utilization).toBe(0.19)
+    expect(result.calculatedBalance).toBeCloseTo(8171.22, 2)
+    expect(result.delta).toBeCloseTo(171.22, 2)
+    expect(result.openingBalance).toBeCloseTo(6180.29, 2)
+    expect(result.availableCredit).toBeCloseTo(1828.78, 2)
+    expect(result.utilization).toBeCloseTo(0.817122, 6)
   })
 
-  it('calculates checking balance from signed transaction sum and snapshot delta', () => {
+  it('includes pending transactions in calculated balance for checking', () => {
     const result = computeAccountBalance({
       id: 2,
       name: 'Checking',
@@ -37,19 +39,21 @@ describe('computeAccountBalance', () => {
       institution: 'Chase',
       lastFour: null,
       color: '#10b981',
-      currentBalance: 1300,
+      currentBalance: 970,
       balanceAsOfDate: '2026-03-05',
       creditLimit: null,
       apr: null,
       createdAt: new Date('2026-03-01'),
       transactionCount: 3,
-      // Opening 1000 + paycheck 500 + groceries -200
-      totalTxAmount: 1300,
+      // Opening 1000 + posted expense -10 + pending expense -20 = 970
+      totalTxAmount: 970,
+      postedTxAmount: 990,
+      pendingTxAmount: -20,
       openingTxAmount: 1000,
       openingTxDate: '2026-03-01',
     })
 
-    expect(result.calculatedBalance).toBe(1300)
+    expect(result.calculatedBalance).toBe(970)
     expect(result.delta).toBe(0)
     expect(result.openingBalance).toBe(1000)
     expect(result.availableCredit).toBeNull()

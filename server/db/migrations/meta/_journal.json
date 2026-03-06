@@ -64,6 +64,13 @@
       "when": 1772780000000,
       "tag": "0008_opening_balance_anchor",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772781000000,
+      "tag": "0009_fix_credit_card_opening_balance_sign",
+      "breakpoints": true
     }
   ]
 }
