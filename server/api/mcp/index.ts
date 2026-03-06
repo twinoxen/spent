@@ -11,8 +11,8 @@ import { toCsv } from '../../utils/exportFormats'
 import { interAccountTransferCondition } from '../../utils/transferExclusion'
 import {
   getOpeningBalanceColumnExists,
-  isMissingOpeningBalanceColumn,
   logAccountsQueryError,
+  pathForOpeningBalanceSupport,
 } from '../../utils/openingBalanceSupport'
 
 function buildMcpServer(userId: number) {
@@ -91,21 +91,14 @@ function buildMcpServer(userId: number) {
       .orderBy(accounts.name)
 
     const supportsOpeningBalance = await getOpeningBalanceColumnExists(db)
+    const queryPath = pathForOpeningBalanceSupport(supportsOpeningBalance)
 
     let results
     try {
       results = await buildAccountQuery(supportsOpeningBalance)
     } catch (error) {
-      logAccountsQueryError('mcp/list_accounts', error, 'primary')
-
-      if (!supportsOpeningBalance || !isMissingOpeningBalanceColumn(error)) throw error
-
-      try {
-        results = await buildAccountQuery(false)
-      } catch (fallbackError) {
-        logAccountsQueryError('mcp/list_accounts', fallbackError, 'fallback')
-        throw fallbackError
-      }
+      logAccountsQueryError('mcp/list_accounts', error, queryPath)
+      throw error
     }
 
     const { computeAccountBalance } = await import('../../utils/computeBalances')

@@ -2,20 +2,22 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   __resetOpeningBalanceColumnCacheForTests,
   getOpeningBalanceColumnExists,
-  isMissingOpeningBalanceColumn,
+  logAccountsQueryError,
+  pathForOpeningBalanceSupport,
 } from './openingBalanceSupport'
 
 describe('openingBalanceSupport', () => {
   beforeEach(() => {
     __resetOpeningBalanceColumnCacheForTests()
+    vi.restoreAllMocks()
   })
 
-  it('detects missing is_opening_balance postgres error', () => {
-    expect(isMissingOpeningBalanceColumn({ code: '42703', message: 'column "is_opening_balance" does not exist' })).toBe(true)
-    expect(isMissingOpeningBalanceColumn({ code: '42P01', message: 'relation missing' })).toBe(false)
+  it('returns query path A when opening-balance column exists and B otherwise', () => {
+    expect(pathForOpeningBalanceSupport(true)).toBe('A')
+    expect(pathForOpeningBalanceSupport(false)).toBe('B')
   })
 
-  it('caches information_schema probe result for short ttl window', async () => {
+  it('caches information_schema probe result for ttl window', async () => {
     const execute = vi.fn(async () => [{ exists: true }])
     const db = { execute }
 
@@ -27,13 +29,24 @@ describe('openingBalanceSupport', () => {
     expect(execute).toHaveBeenCalledTimes(1)
   })
 
-  it('returns false when probing hits missing-column error', async () => {
+  it('returns false when information_schema probe reports missing column', async () => {
     const db = {
-      execute: vi.fn(async () => {
-        throw { code: '42703', message: 'column "is_opening_balance" does not exist' }
-      }),
+      execute: vi.fn(async () => [{ exists: false }]),
     }
 
     await expect(getOpeningBalanceColumnExists(db)).resolves.toBe(false)
+    expect(db.execute).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs sanitized error details without raw SQL/message body', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    logAccountsQueryError('api/accounts', new Error('Failed query: select * from very_long_sql_here'), 'B')
+
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const [, payload] = errorSpy.mock.calls[0]
+    expect(payload).toMatchObject({ queryPath: 'B' })
+    expect(payload).toHaveProperty('messageLength')
+    expect(payload).not.toHaveProperty('message')
   })
 })

@@ -4,8 +4,8 @@ import { eq, sql } from 'drizzle-orm'
 import { computeAccountBalance, type RawAccountRow } from '../../utils/computeBalances'
 import {
   getOpeningBalanceColumnExists,
-  isMissingOpeningBalanceColumn,
   logAccountsQueryError,
+  pathForOpeningBalanceSupport,
 } from '../../utils/openingBalanceSupport'
 
 export default defineEventHandler(async (event) => {
@@ -81,23 +81,14 @@ export default defineEventHandler(async (event) => {
     .orderBy(accounts.name)
 
   const supportsOpeningBalance = await getOpeningBalanceColumnExists(db)
+  const queryPath = pathForOpeningBalanceSupport(supportsOpeningBalance)
 
   let results
   try {
     results = await buildAccountQuery(supportsOpeningBalance)
   } catch (error) {
-    logAccountsQueryError('api/accounts', error, 'primary')
-
-    if (!supportsOpeningBalance || !isMissingOpeningBalanceColumn(error)) {
-      throw error
-    }
-
-    try {
-      results = await buildAccountQuery(false)
-    } catch (fallbackError) {
-      logAccountsQueryError('api/accounts', fallbackError, 'fallback')
-      throw fallbackError
-    }
+    logAccountsQueryError('api/accounts', error, queryPath)
+    throw error
   }
 
   return results.map(row => computeAccountBalance(row as RawAccountRow))

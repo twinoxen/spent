@@ -1,32 +1,28 @@
 import { sql } from 'drizzle-orm'
 
-const COLUMN_CACHE_TTL_MS = 30_000
+const COLUMN_CACHE_TTL_MS = 60_000
+
+type QueryPath = 'A' | 'B'
 
 let columnExistsCache: { value: boolean; expiresAt: number } | null = null
 let columnExistsInflight: Promise<boolean> | null = null
 
-export function isMissingOpeningBalanceColumn(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const pgError = error as { code?: string; message?: string }
-  return pgError.code === '42703' && (pgError.message?.includes('is_opening_balance') ?? false)
+export function pathForOpeningBalanceSupport(supportsOpeningBalance: boolean): QueryPath {
+  return supportsOpeningBalance ? 'A' : 'B'
 }
 
-export function logAccountsQueryError(scope: 'api/accounts' | 'mcp/list_accounts', error: unknown, phase: 'primary' | 'fallback') {
-  const pgError = error as {
-    code?: string
-    message?: string
-    detail?: string
-    hint?: string
-    severity?: string
-  }
+export function logAccountsQueryError(
+  scope: 'api/accounts' | 'mcp/list_accounts',
+  error: unknown,
+  queryPath: QueryPath,
+) {
+  const message = error instanceof Error
+    ? error.message
+    : (typeof error === 'string' ? error : JSON.stringify(error))
 
   console.error(`[${scope}] list_accounts query failed`, {
-    phase,
-    code: pgError?.code ?? null,
-    message: pgError?.message ?? String(error),
-    detail: pgError?.detail ?? null,
-    hint: pgError?.hint ?? null,
-    severity: pgError?.severity ?? null,
+    queryPath,
+    messageLength: message?.length ?? 0,
   })
 }
 
@@ -57,12 +53,6 @@ export async function getOpeningBalanceColumnExists(db: any): Promise<boolean> {
         const exists = await fetchOpeningBalanceColumnExists(db)
         columnExistsCache = { value: exists, expiresAt: Date.now() + COLUMN_CACHE_TTL_MS }
         return exists
-      } catch (error) {
-        if (isMissingOpeningBalanceColumn(error)) {
-          columnExistsCache = { value: false, expiresAt: Date.now() + COLUMN_CACHE_TTL_MS }
-          return false
-        }
-        throw error
       } finally {
         columnExistsInflight = null
       }
