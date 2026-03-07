@@ -98,7 +98,7 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   await expect(page).toHaveURL('/')
 
   await page.goto('/accounts')
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Accounts', level: 1 })).toBeVisible()
   await page.getByRole('button', { name: 'Add Account' }).first().click()
 
   const addAccountDialog = page.getByRole('dialog')
