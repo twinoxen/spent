@@ -22,13 +22,14 @@
       <UButton label="Add Account" color="primary" @click="openCreate" />
     </div>
 
-    <div v-else class="mb-4 text-xs text-gray-600 dark:text-gray-300">
-      <p><span class="font-semibold">Ledger balance</span> = your running balance from transactions (includes pending).</p>
-      <p><span class="font-semibold">Bank snapshot</span> = last entered statement/app balance.</p>
-    </div>
+    <template v-else>
+      <div class="mb-4 text-xs text-gray-600 dark:text-gray-300">
+        <p><span class="font-semibold">Ledger balance</span> = your running balance from transactions (includes pending).</p>
+        <p><span class="font-semibold">Bank snapshot</span> = last entered statement/app balance.</p>
+      </div>
 
-    <!-- Account Cards -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Account Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
         v-for="account in accounts"
         :key="account.id"
@@ -127,6 +128,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <!-- Create/Edit Modal -->
     <UModal v-model:open="modalOpen" :title="editingAccount ? 'Edit Account' : 'Add Account'">
