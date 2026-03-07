@@ -1,13 +1,23 @@
 import * as schema from './schema'
-import { getRequiredDatabaseUrl } from './migrate'
+import { getRequiredDatabaseUrl, resolveDatabaseDriver } from './migrate'
 
 type DbInstance = Awaited<ReturnType<typeof createDb>>
 
 let db: DbInstance | null = null
-let activeDriver: 'neon-http' | null = null
+let activeDriver: 'neon-http' | 'node-postgres' | null = null
 
 async function createDb() {
   const databaseUrl = getRequiredDatabaseUrl()
+  const driver = resolveDatabaseDriver(databaseUrl)
+
+  if (driver === 'node-postgres') {
+    const { Pool } = await import('pg')
+    const { drizzle } = await import('drizzle-orm/node-postgres')
+    activeDriver = 'node-postgres'
+    console.log('[db] mode=node-postgres')
+    return drizzle(new Pool({ connectionString: databaseUrl }), { schema })
+  }
+
   const { neon } = await import('@neondatabase/serverless')
   const { drizzle } = await import('drizzle-orm/neon-http')
   activeDriver = 'neon-http'
