@@ -13,6 +13,7 @@ export interface TransactionFilterParams {
   date?: string
   uncategorizedOnly?: boolean
   amountSign?: 'debit' | 'credit'
+  pendingOnly?: boolean
 }
 
 /**
@@ -31,6 +32,7 @@ export function parseTransactionFilters(query: Record<string, any>): Transaction
     date: query.date as string | undefined,
     uncategorizedOnly: query.uncategorizedOnly === 'true',
     amountSign: query.amountSign === 'credit' ? 'credit' : query.amountSign === 'debit' ? 'debit' : undefined,
+    pendingOnly: query.pendingOnly === 'true',
   }
 }
 
@@ -63,6 +65,10 @@ export function buildTransactionWhereClause(
     conditions.push(sql`${transactions.amount} < 0`)
   } else if (filters.amountSign === 'credit') {
     conditions.push(sql`${transactions.amount} > 0`)
+  }
+
+  if (filters.pendingOnly) {
+    conditions.push(eq(transactions.isPending, true))
   }
 
   if (filters.merchantId) {

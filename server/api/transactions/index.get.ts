@@ -67,6 +67,7 @@ export default defineEventHandler(async (event) => {
       account: {
         id: accounts.id,
         name: accounts.name,
+        institution: accounts.institution,
         color: accounts.color,
       },
     })
