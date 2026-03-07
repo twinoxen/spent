@@ -102,9 +102,10 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   await page.getByRole('button', { name: 'Add Account' }).first().click()
 
   const addAccountDialog = page.getByRole('dialog')
-  await addAccountDialog.getByLabel('Account Name *').fill(accountName)
-  await addAccountDialog.getByLabel('Account Type').selectOption('checking')
-  await addAccountDialog.getByLabel('Institution').fill('E2E Bank')
+  await expect(addAccountDialog).toBeVisible()
+  await addAccountDialog.getByPlaceholder('e.g. Apple Card, Chase Checking').fill(accountName)
+  await addAccountDialog.locator('select').selectOption('checking')
+  await addAccountDialog.getByPlaceholder('e.g. Apple, Chase, Wells Fargo').fill('E2E Bank')
   await addAccountDialog.getByRole('button', { name: 'Add Account' }).click()
 
   await expect(page.getByText(accountName)).toBeVisible()
