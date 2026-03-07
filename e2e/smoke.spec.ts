@@ -125,7 +125,7 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   await addTransactionDialog.getByRole('button', { name: 'Add Transaction' }).click()
 
   await expect(page.getByRole('cell', { name: txDescription })).toBeVisible()
-  await expect(page.getByText(accountName).first()).toBeVisible()
+  await expect(page.getByRole('cell', { name: accountName })).toBeVisible()
 
   await page.goto('/accounts')
   await expect(page.getByRole('heading', { name: accountName })).toBeVisible()
