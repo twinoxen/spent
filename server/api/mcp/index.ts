@@ -9,15 +9,7 @@ import { buildTransactionWhereClause } from '../../utils/transactionFilters'
 import { generateFingerprint } from '../../utils/fingerprint'
 import { toCsv } from '../../utils/exportFormats'
 import { interAccountTransferCondition } from '../../utils/transferExclusion'
-
-function isMissingOpeningBalanceColumnError(error: unknown): boolean {
-  const message = error instanceof Error
-    ? error.message
-    : (typeof error === 'string' ? error : JSON.stringify(error))
-
-  const lower = message.toLowerCase()
-  return lower.includes('is_opening_balance') && lower.includes('does not exist')
-}
+import { listAccountsWithBalances } from '../../utils/listAccountsBalances'
 
 function buildMcpServer(userId: number) {
   const server = new McpServer({ name: 'spent', version: '1.0.0' })
@@ -26,81 +18,7 @@ function buildMcpServer(userId: number) {
 
   server.tool('list_accounts', 'List all financial accounts with balances, transaction counts, credit limits, and utilization.', {}, async () => {
     const db = await getDb()
-
-    const buildAccountQuery = () => db
-      .select({
-        id: accounts.id,
-        name: accounts.name,
-        type: accounts.type,
-        institution: accounts.institution,
-        lastFour: accounts.lastFour,
-        color: accounts.color,
-        currentBalance: accounts.currentBalance,
-        balanceAsOfDate: accounts.balanceAsOfDate,
-        creditLimit: accounts.creditLimit,
-        apr: accounts.apr,
-        transactionCount: sql<number>`count(${transactions.id})`,
-        totalTxAmount: sql<number | null>`sum(${transactions.amount})`,
-        anchoredTxAmount: sql<number | null>`(
-          with latest_opening as (
-            select o.id, o.amount, o.transaction_date
-            from transactions o
-            where o.account_id = ${accounts.id}
-              and o.is_opening_balance = true
-            order by o.transaction_date desc, o.id desc
-            limit 1
-          )
-          select case
-            when lo.id is null then coalesce(sum(t.amount), 0)
-            else lo.amount + coalesce(sum(case
-              when t.is_opening_balance = false
-                and (t.transaction_date, t.id) > (lo.transaction_date, lo.id)
-              then t.amount
-              else 0
-            end), 0)
-          end
-          from transactions t
-          left join latest_opening lo on true
-          where t.account_id = ${accounts.id}
-        )`,
-        postedTxAmount: sql<number | null>`sum(case when ${transactions.isPending} then 0 else ${transactions.amount} end)`,
-        pendingTxAmount: sql<number | null>`sum(case when ${transactions.isPending} then ${transactions.amount} else 0 end)`,
-        openingTxAmount: sql<number | null>`(
-          select o.amount
-          from transactions o
-          where o.account_id = ${accounts.id}
-            and o.is_opening_balance = true
-          order by o.transaction_date desc, o.id desc
-          limit 1
-        )`,
-        openingTxDate: sql<string | null>`(
-          select o.transaction_date
-          from transactions o
-          where o.account_id = ${accounts.id}
-            and o.is_opening_balance = true
-          order by o.transaction_date desc, o.id desc
-          limit 1
-        )`,
-      })
-      .from(accounts)
-      .leftJoin(transactions, eq(transactions.accountId, accounts.id))
-      .where(eq(accounts.userId, userId))
-      .groupBy(accounts.id)
-      .orderBy(accounts.name)
-
-    let results
-    try {
-      results = await buildAccountQuery()
-    } catch (error) {
-      console.error('[mcp/list_accounts] list_accounts query failed', error)
-      if (isMissingOpeningBalanceColumnError(error)) {
-        console.error('[mcp/list_accounts] Missing transactions.is_opening_balance column. Database migrations are missing. Run `npm run db:migrate`.')
-      }
-      throw error
-    }
-
-    const { computeAccountBalance } = await import('../../utils/computeBalances')
-    const enriched = results.map(row => computeAccountBalance(row as any))
+    const enriched = await listAccountsWithBalances(db, userId)
     return { content: [{ type: 'text', text: JSON.stringify(enriched, null, 2) }] }
   })
 
