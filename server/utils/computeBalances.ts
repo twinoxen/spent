@@ -41,6 +41,7 @@ export interface AccountWithBalance {
   openingBalanceDate: string | null
   // Computed
   calculatedBalance: number | null
+  pendingTotal: number
   delta: number | null
   availableCredit: number | null
   utilization: number | null
@@ -75,6 +76,7 @@ export function computeAccountBalance(row: RawAccountRow): AccountWithBalance {
 
   const isCreditCard = CREDIT_TYPES.has(row.type)
   const openingBalance = row.openingTxAmount === null ? null : row.openingTxAmount
+  const pendingTotal = row.pendingTxAmount ?? 0
 
   if (row.transactionCount > 0) {
     if (row.anchoredTxAmount !== undefined) {
@@ -132,6 +134,7 @@ export function computeAccountBalance(row: RawAccountRow): AccountWithBalance {
     openingBalance,
     openingBalanceDate: row.openingTxDate,
     calculatedBalance,
+    pendingTotal,
     delta,
     availableCredit,
     utilization,

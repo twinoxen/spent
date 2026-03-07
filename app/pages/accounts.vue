@@ -22,6 +22,11 @@
       <UButton label="Add Account" color="primary" @click="openCreate" />
     </div>
 
+    <div v-else class="mb-4 text-xs text-gray-600 dark:text-gray-300">
+      <p><span class="font-semibold">Ledger balance</span> = your running balance from transactions (includes pending).</p>
+      <p><span class="font-semibold">Bank snapshot</span> = last entered statement/app balance.</p>
+    </div>
+
     <!-- Account Cards -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
@@ -73,7 +78,7 @@
               <div class="flex items-end justify-between mb-1.5">
                 <div>
                   <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.calculatedBalance) }}</p>
-                  <p class="text-xs opacity-75">calculated debt · {{ formatCurrency(account.creditLimit) }} limit</p>
+                  <p class="text-xs opacity-75">ledger debt (incl. pending) · {{ formatCurrency(account.creditLimit) }} limit</p>
                 </div>
                 <div class="text-right">
                   <p class="text-sm font-semibold tabular-nums">{{ formatPercent(account.utilization) }}</p>
@@ -91,12 +96,13 @@
             </template>
             <template v-else>
               <p class="text-2xl font-bold tabular-nums">{{ formatCurrency(account.calculatedBalance) }}</p>
-              <p class="text-xs opacity-75">calculated balance</p>
+              <p class="text-xs opacity-75">ledger balance (includes pending)</p>
             </template>
 
-            <div v-if="account.currentBalance !== null" class="mt-2 text-xs opacity-80">
-              <p>Snapshot: {{ formatCurrency(account.currentBalance) }} <span v-if="account.balanceAsOfDate">(as of {{ account.balanceAsOfDate }})</span></p>
-              <p>Delta: {{ formatSignedCurrency(account.delta) }}</p>
+            <div class="mt-2 text-xs opacity-80 space-y-0.5">
+              <p v-if="account.currentBalance !== null">Bank snapshot: {{ formatCurrency(account.currentBalance) }} <span v-if="account.balanceAsOfDate">(as of {{ account.balanceAsOfDate }})</span></p>
+              <p v-if="account.currentBalance !== null">Snapshot vs ledger delta: {{ formatSignedCurrency(account.delta) }}</p>
+              <p v-if="account.pendingTotal">Pending total: {{ formatSignedCurrency(account.pendingTotal) }}</p>
             </div>
           </div>
           <div v-else class="mb-3">
