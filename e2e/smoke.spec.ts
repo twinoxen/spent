@@ -108,24 +108,26 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   await addAccountDialog.getByPlaceholder('e.g. Apple, Chase, Wells Fargo').fill('E2E Bank')
   await addAccountDialog.getByRole('button', { name: 'Add Account' }).click()
 
-  await expect(page.getByText(accountName)).toBeVisible()
+  // Account name appears in multiple places (card + modal preview). Assert the card title.
+  await expect(page.getByRole('heading', { name: accountName })).toBeVisible()
 
   await page.goto('/transactions')
   await expect(page.getByRole('heading', { name: 'Transactions' })).toBeVisible()
   await page.getByRole('button', { name: 'Add Transaction' }).click()
 
   const addTransactionDialog = page.getByRole('dialog')
-  await addTransactionDialog.getByLabel('Description *').fill(txDescription)
-  await addTransactionDialog.getByLabel('Amount ($) *').fill('12.34')
-  await addTransactionDialog.getByLabel('Account *').selectOption({ label: accountName })
-  await addTransactionDialog.getByLabel('Merchant').fill('E2E Store')
+  await expect(addTransactionDialog).toBeVisible()
+  await addTransactionDialog.getByPlaceholder('e.g. Coffee at Blue Bottle').fill(txDescription)
+  await addTransactionDialog.getByPlaceholder('0.00').fill('12.34')
+  await addTransactionDialog.locator('select').selectOption({ label: accountName })
+  await addTransactionDialog.getByPlaceholder('e.g. Blue Bottle Coffee').fill('E2E Store')
   await addTransactionDialog.getByRole('button', { name: 'Add Transaction' }).click()
 
   await expect(page.getByRole('cell', { name: txDescription })).toBeVisible()
   await expect(page.getByText(accountName).first()).toBeVisible()
 
   await page.goto('/accounts')
-  await expect(page.getByText(accountName)).toBeVisible()
+  await expect(page.getByRole('heading', { name: accountName })).toBeVisible()
 
   await page.goto('/transactions')
   await expect(page.getByRole('cell', { name: txDescription })).toBeVisible()
