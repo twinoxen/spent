@@ -119,7 +119,8 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   await expect(addTransactionDialog).toBeVisible()
   await addTransactionDialog.getByPlaceholder('e.g. Coffee at Blue Bottle').fill(txDescription)
   await addTransactionDialog.getByPlaceholder('0.00').fill('12.34')
-  await addTransactionDialog.locator('select').selectOption({ label: accountName })
+  // Pick the account <select> by finding the one that contains the account name option.
+  await addTransactionDialog.locator('select').filter({ hasText: accountName }).selectOption({ label: accountName })
   await addTransactionDialog.getByPlaceholder('e.g. Blue Bottle Coffee').fill('E2E Store')
   await addTransactionDialog.getByRole('button', { name: 'Add Transaction' }).click()
 
