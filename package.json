@@ -13,7 +13,8 @@
     "db:studio": "drizzle-kit studio",
     "db:reset": "npm run db:reset-local && npm run db:migrate",
     "dev:fresh": "npm run db:reset && nuxt dev",
-    "test": "vitest run",
+    "test": "vitest run app server",
+    "test:e2e": "playwright test",
     "db:up": "scripts/dev-db-up.sh",
     "db:down": "docker compose down",
     "db:reset-local": "scripts/dev-db-reset.sh"
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@iconify-json/heroicons": "^1.2.3",
+    "@playwright/test": "^1.54.2",
     "@types/sharp": "^0.31.1",
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.6",
