@@ -23,11 +23,9 @@ export async function getDb(): Promise<DbInstance> {
 }
 
 export function getDbRuntimeInfo() {
-  const databaseUrl = process.env.DATABASE_URL
   const storageDatabaseUrl = process.env.STORAGE_DATABASE_URL
 
   return {
-    databaseUrlSet: Boolean(databaseUrl),
     storageDatabaseUrlSet: Boolean(storageDatabaseUrl),
     activeDriver,
     resolvedDriverPath: activeDriver ?? 'neon-http',

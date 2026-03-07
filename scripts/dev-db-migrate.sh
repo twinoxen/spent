@@ -8,6 +8,6 @@ if [[ -f .env.local ]]; then
   set +a
 fi
 
-: "${DATABASE_URL:?DATABASE_URL must be set (or set STORAGE_DATABASE_URL).}"
+: "${STORAGE_DATABASE_URL:?STORAGE_DATABASE_URL must be set.}"
 
 npm run db:migrate

@@ -5,7 +5,7 @@ Finance visualization app built with Nuxt 4 + Drizzle on Postgres.
 ## Database strategy
 
 - **Local dev:** Docker Postgres (`docker-compose.yml`) with persistent `pgdata` volume.
-- **Production:** Neon Postgres via `DATABASE_URL` (or `STORAGE_DATABASE_URL`).
+- **Production:** Neon Postgres via `STORAGE_DATABASE_URL`.
 - **No local file DB fallback:** app and migrations now require a Postgres URL in all environments.
 
 ## Prerequisites
@@ -21,11 +21,11 @@ Finance visualization app built with Nuxt 4 + Drizzle on Postgres.
 npm ci
 ```
 
-2. Copy env file and set DB URL (default below matches compose):
+2. Copy env file and set `STORAGE_DATABASE_URL` (default below matches compose):
 
 ```bash
 cp .env.example .env.local
-# DATABASE_URL=postgresql://spent:spent@localhost:5432/spent
+# STORAGE_DATABASE_URL=postgresql://spent:spent@localhost:5432/spent
 ```
 
 3. Start local Postgres:
@@ -50,10 +50,10 @@ npm run dev
 ## DB scripts
 
 ```bash
-npm run db:up           # start postgres container
+npm run db:up           # start postgres container and wait until healthy
 npm run db:down         # stop containers
-npm run db:migrate      # apply drizzle migrations (requires DATABASE_URL)
-npm run db:reset-local  # reset local postgres volume
+npm run db:migrate      # apply drizzle migrations (requires STORAGE_DATABASE_URL)
+npm run db:reset-local  # reset local postgres volume and wait until healthy
 npm run db:reset        # reset local db + run migrations
 ```
 
@@ -69,5 +69,10 @@ Pull request CI (`.github/workflows/ci.yml`) runs:
 
 ## Notes
 
-- `DATABASE_URL` (or `STORAGE_DATABASE_URL`) is required for runtime and migrations.
-- `STORAGE_DATABASE_URL` takes precedence when both are set.
+- `STORAGE_DATABASE_URL` is required for runtime and migrations in all environments.
+
+## Vercel environment variables
+
+- Set `STORAGE_DATABASE_URL` in Production/Preview/Development as needed.
+- Remove any legacy DB URL env vars from the project to avoid stale or conflicting configuration.
+- If you use Neon + Vercel integration, map the integration output value into `STORAGE_DATABASE_URL`.
