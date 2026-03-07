@@ -80,6 +80,11 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   const txDescription = `E2E Grocery ${Date.now()}`
 
   await page.goto('/login')
+  // Wait for all JS modules to finish loading so Vue has hydrated before we
+  // interact with reactive elements. In dev mode Vite compiles modules on
+  // demand; without this wait the "Sign up" click can land on the
+  // SSR-rendered button before Vue attaches its event handler.
+  await page.waitForLoadState('networkidle')
   await page.getByRole('button', { name: 'Sign up' }).click()
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(password)
