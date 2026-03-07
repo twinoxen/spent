@@ -28,9 +28,16 @@ export default defineEventHandler(async (event) => {
     .setExpirationTime('30d')
     .sign(secret)
 
+  const forwardedProto = getHeader(event, 'x-forwarded-proto')
+  const isHttps = forwardedProto
+    ? forwardedProto === 'https'
+    : getRequestURL(event).protocol === 'https:'
+
   setCookie(event, 'auth_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    // Only set Secure cookies when the request is actually HTTPS.
+    // This keeps local dev/CI (http://127.0.0.1) working even when NODE_ENV=production.
+    secure: isHttps,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 30,
     path: '/',

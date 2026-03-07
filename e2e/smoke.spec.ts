@@ -80,6 +80,11 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   const txDescription = `E2E Grocery ${Date.now()}`
 
   await page.goto('/login')
+  // Wait for all JS modules to finish loading so Vue has hydrated before we
+  // interact with reactive elements. In dev mode Vite compiles modules on
+  // demand; without this wait the "Sign up" click can land on the
+  // SSR-rendered button before Vue attaches its event handler.
+  await page.waitForLoadState('networkidle')
   await page.getByRole('button', { name: 'Sign up' }).click()
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(password)
@@ -93,33 +98,37 @@ test('register/login, create account + transaction, and MCP list_accounts works'
   await expect(page).toHaveURL('/')
 
   await page.goto('/accounts')
-  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Accounts', level: 1 })).toBeVisible()
   await page.getByRole('button', { name: 'Add Account' }).first().click()
 
   const addAccountDialog = page.getByRole('dialog')
-  await addAccountDialog.getByLabel('Account Name *').fill(accountName)
-  await addAccountDialog.getByLabel('Account Type').selectOption('checking')
-  await addAccountDialog.getByLabel('Institution').fill('E2E Bank')
+  await expect(addAccountDialog).toBeVisible()
+  await addAccountDialog.getByPlaceholder('e.g. Apple Card, Chase Checking').fill(accountName)
+  await addAccountDialog.locator('select').selectOption('checking')
+  await addAccountDialog.getByPlaceholder('e.g. Apple, Chase, Wells Fargo').fill('E2E Bank')
   await addAccountDialog.getByRole('button', { name: 'Add Account' }).click()
 
-  await expect(page.getByText(accountName)).toBeVisible()
+  // Account name appears in multiple places (card + modal preview). Assert the card title.
+  await expect(page.getByRole('heading', { name: accountName })).toBeVisible()
 
   await page.goto('/transactions')
   await expect(page.getByRole('heading', { name: 'Transactions' })).toBeVisible()
   await page.getByRole('button', { name: 'Add Transaction' }).click()
 
   const addTransactionDialog = page.getByRole('dialog')
-  await addTransactionDialog.getByLabel('Description *').fill(txDescription)
-  await addTransactionDialog.getByLabel('Amount ($) *').fill('12.34')
-  await addTransactionDialog.getByLabel('Account *').selectOption({ label: accountName })
-  await addTransactionDialog.getByLabel('Merchant').fill('E2E Store')
+  await expect(addTransactionDialog).toBeVisible()
+  await addTransactionDialog.getByPlaceholder('e.g. Coffee at Blue Bottle').fill(txDescription)
+  await addTransactionDialog.getByPlaceholder('0.00').fill('12.34')
+  // Pick the account <select> by finding the one that contains the account name option.
+  await addTransactionDialog.locator('select').filter({ hasText: accountName }).selectOption({ label: accountName })
+  await addTransactionDialog.getByPlaceholder('e.g. Blue Bottle Coffee').fill('E2E Store')
   await addTransactionDialog.getByRole('button', { name: 'Add Transaction' }).click()
 
   await expect(page.getByRole('cell', { name: txDescription })).toBeVisible()
-  await expect(page.getByText(accountName).first()).toBeVisible()
+  await expect(page.getByRole('cell', { name: accountName })).toBeVisible()
 
   await page.goto('/accounts')
-  await expect(page.getByText(accountName)).toBeVisible()
+  await expect(page.getByRole('heading', { name: accountName })).toBeVisible()
 
   await page.goto('/transactions')
   await expect(page.getByRole('cell', { name: txDescription })).toBeVisible()

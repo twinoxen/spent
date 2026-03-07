@@ -70,7 +70,10 @@ jobs:
     env:
       STORAGE_DATABASE_URL: postgresql://spent:spent@localhost:5432/spent
       JWT_SECRET: ci-test-secret-32-characters-minimum
-      PLAYWRIGHT_WEB_SERVER_CMD: npm run db:migrate && npm run dev -- --host 127.0.0.1 --port 4173
+      # Use pre-built preview server so Vue hydrates instantly (no Vite
+      # on-demand compilation delays that cause the "Sign up" click to land
+      # before event handlers are attached).
+      PLAYWRIGHT_WEB_SERVER_CMD: npm run db:migrate && PORT=4173 npm run preview
       CI: true
 
     steps:
@@ -85,6 +88,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build app
+        run: npm run build
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

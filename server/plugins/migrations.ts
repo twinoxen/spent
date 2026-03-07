@@ -1,9 +1,12 @@
 import { runMigrations } from '../db/migrate'
 
 export default defineNitroPlugin(async () => {
-  // On Vercel, migrations are run during the build step via vercel.json's buildCommand.
-  // The migration SQL files are not available in the serverless function's runtime filesystem.
+  // Only auto-run migrations during local development.
+  // - On Vercel, migrations are run during the build step via vercel.json's buildCommand.
+  // - In production/preview (e.g. `nuxt preview`), the runtime filesystem/bundle may not
+  //   include the migration SQL files, and CI runs migrations explicitly before starting.
   if (process.env.VERCEL) return
+  if (process.env.NODE_ENV !== 'development') return
 
   await runMigrations()
 })
