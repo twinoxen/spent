@@ -129,19 +129,11 @@
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Category</label>
-              <select
-                v-model="newTx.categoryId"
-                class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">No Category</option>
-                <template v-for="parent in categoryTree" :key="parent.id">
-                  <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
-                    <option :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }} (general)</option>
-                    <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
-                  </optgroup>
-                  <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
-                </template>
-              </select>
+              <CategorySelect
+                :model-value="newTx.categoryId || null"
+                :tree="categoryTree"
+                @update:model-value="(val) => newTx.categoryId = val ?? ''"
+              />
             </div>
 
             <div>
@@ -379,19 +371,11 @@
             <!-- Category -->
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Category</label>
-              <select
-                v-model="editForm.categoryId"
-                class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">No Category</option>
-                <template v-for="parent in categoryTree" :key="parent.id">
-                  <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
-                    <option :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }} (general)</option>
-                    <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
-                  </optgroup>
-                  <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
-                </template>
-              </select>
+              <CategorySelect
+                :model-value="editForm.categoryId || null"
+                :tree="categoryTree"
+                @update:model-value="(val) => editForm.categoryId = val ?? ''"
+              />
 
               <!-- Create new category inline -->
               <div v-if="!showNewCategoryForm" class="mt-1.5">
@@ -517,20 +501,12 @@
 
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Category</label>
-          <select
-            v-model="filters.categoryId"
-            class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            @change="loadTransactions"
-          >
-            <option :value="null">All Categories</option>
-            <template v-for="parent in categoryTree" :key="parent.id">
-              <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
-                <option :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }} (general)</option>
-                <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
-              </optgroup>
-              <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
-            </template>
-          </select>
+          <CategorySelect
+            :model-value="filters.categoryId"
+            :tree="categoryTree"
+            placeholder="All Categories"
+            @update:model-value="(val) => { filters.categoryId = val; loadTransactions() }"
+          />
         </div>
 
         <div>
