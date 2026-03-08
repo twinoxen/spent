@@ -53,18 +53,14 @@
 
           <div class="flex items-center gap-3">
             <span class="text-sm text-gray-500 dark:text-gray-400">{{ selectedTransactions.size }} selected</span>
-            <select
-              v-model="bulkCategoryId"
-              class="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option :value="null">Select category…</option>
-              <optgroup v-for="parent in categoryTree" :key="parent.id" :label="parent.name">
-                <option :value="parent.id">{{ parent.name }}</option>
-                <option v-for="child in parent.children" :key="child.id" :value="child.id">
-                  &nbsp;&nbsp;{{ child.name }}
-                </option>
-              </optgroup>
-            </select>
+            <div class="w-48">
+              <CategorySelect
+                :model-value="bulkCategoryId ? String(bulkCategoryId) : null"
+                :tree="categoryTree"
+                placeholder="Select category…"
+                @update:model-value="(val) => bulkCategoryId = val ? Number(val) : null"
+              />
+            </div>
             <UButton
               label="Apply to Selected"
               color="primary"
@@ -111,19 +107,14 @@
 
                 <!-- Category Selector -->
                 <div class="flex items-center gap-3 flex-wrap">
-                  <select
-                    :value="transaction.category?.id || ''"
-                    class="flex-1 min-w-[200px] px-3 py-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    @change="updateCategory(transaction.id, $event)"
-                  >
-                    <option value="">Select category…</option>
-                    <optgroup v-for="parent in categoryTree" :key="parent.id" :label="parent.name">
-                      <option :value="parent.id">{{ parent.name }}</option>
-                      <option v-for="child in parent.children" :key="child.id" :value="child.id">
-                        &nbsp;&nbsp;{{ child.name }}
-                      </option>
-                    </optgroup>
-                  </select>
+                  <div class="flex-1 min-w-[200px]">
+                    <CategorySelect
+                      :model-value="transaction.category?.id ? String(transaction.category.id) : null"
+                      :tree="categoryTree"
+                      placeholder="Select category…"
+                      @update:model-value="(val) => val && quickAssign(transaction.id, Number(val))"
+                    />
+                  </div>
 
                   <UButton label="Skip" color="neutral" variant="ghost" size="sm" @click="skipTransaction(transaction.id)" />
                 </div>
