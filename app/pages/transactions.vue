@@ -136,6 +136,7 @@
                 <option value="">No Category</option>
                 <template v-for="parent in categoryTree" :key="parent.id">
                   <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
+                    <option :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }} (general)</option>
                     <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
                   </optgroup>
                   <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
@@ -385,6 +386,7 @@
                 <option value="">No Category</option>
                 <template v-for="parent in categoryTree" :key="parent.id">
                   <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
+                    <option :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }} (general)</option>
                     <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
                   </optgroup>
                   <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
@@ -523,6 +525,7 @@
             <option :value="null">All Categories</option>
             <template v-for="parent in categoryTree" :key="parent.id">
               <optgroup v-if="parent.children.length > 0" :label="[parent.icon, parent.name].filter(Boolean).join(' ')">
+                <option :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }} (general)</option>
                 <option v-for="child in parent.children" :key="child.id" :value="String(child.id)">{{ child.name }}</option>
               </optgroup>
               <option v-else :value="String(parent.id)">{{ [parent.icon, parent.name].filter(Boolean).join(' ') }}</option>
