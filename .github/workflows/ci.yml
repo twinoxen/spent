@@ -4,7 +4,7 @@ on:
   pull_request:
 
 jobs:
-  unit-build:
+  test-and-build:
     runs-on: ubuntu-latest
 
     services:
