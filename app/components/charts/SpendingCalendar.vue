@@ -1,7 +1,16 @@
 <template>
   <div>
-    <!-- ── Single-month view header ── -->
-    <div v-if="isSingleMonth" class="grid grid-cols-7 mb-1">
+    <!-- ── Week / single-month view header ── -->
+    <div v-if="isSingleWeek" class="grid grid-cols-7 mb-1">
+      <div
+        v-for="d in weekDays"
+        :key="d.dateStr + '-hd'"
+        class="text-center text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-600 py-1"
+      >
+        {{ d.weekday }}
+      </div>
+    </div>
+    <div v-else-if="isSingleMonth" class="grid grid-cols-7 mb-1">
       <div
         v-for="d in DAY_NAMES"
         :key="d"
@@ -14,6 +23,33 @@
     <!-- ── Loading ── -->
     <div v-if="pending" class="flex items-center justify-center h-40">
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500" />
+    </div>
+
+    <!-- ── Week grid ── -->
+    <div v-else-if="isSingleWeek" class="grid grid-cols-7 gap-1">
+      <UTooltip
+        v-for="day in weekDays"
+        :key="day.dateStr"
+        :text="day.total > 0
+          ? `${day.label}: ${formatCurrency(day.total)} · ${day.count} txn${day.count !== 1 ? 's' : ''}`
+          : day.label"
+        :popper="{ placement: 'top' }"
+      >
+        <div
+          class="relative rounded-lg p-1.5 flex flex-col aspect-square transition-transform hover:scale-105"
+          :class="day.total > 0 ? 'cursor-pointer' : 'cursor-default'"
+          :style="{ backgroundColor: cellBg(day.total), color: cellText(day.total) }"
+          @click="day.total > 0 && navigateTo(`/transactions?date=${day.dateStr}`)"
+        >
+          <span class="text-[11px] font-semibold leading-none">{{ day.day }}</span>
+          <span
+            v-if="day.total > 0"
+            class="text-[9px] font-medium leading-tight mt-auto opacity-90 tabular-nums"
+          >
+            {{ formatCurrencyCompact(day.total) }}
+          </span>
+        </div>
+      </UTooltip>
     </div>
 
     <!-- ── Single-month grid ── -->
@@ -98,7 +134,7 @@
         v-for="(level, i) in LEGEND_LEVELS"
         :key="i"
         class="w-3.5 h-3.5"
-        :class="isSingleMonth ? 'rounded-sm' : 'rounded-full'"
+        :class="isSingleMonth || isSingleWeek ? 'rounded-sm' : 'rounded-full'"
         :style="{ backgroundColor: legendColor(level) }"
       />
       <span class="text-[10px] text-gray-400 dark:text-gray-600">More</span>
@@ -122,6 +158,7 @@ const props = defineProps<{
 }>()
 
 // ── View mode ──────────────────────────────────────────────────────────────
+const isSingleWeek = computed(() => props.dateRange === '7')
 const isSingleMonth = computed(() => !props.dateRange || props.dateRange === '30')
 
 // ── Derive year/month for the single-month grid from the startDate prop ─────
@@ -170,6 +207,34 @@ const dayMap = computed(() => {
   const m: Record<string, { total: number; count: number }> = {}
   for (const d of rawDays.value) m[d.date] = { total: d.total, count: d.count }
   return m
+})
+
+// ── Week grid ───────────────────────────────────────────────────────────────
+interface WeekDayEntry { day: number; dateStr: string; weekday: string; total: number; count: number; label: string }
+
+const weekDays = computed((): WeekDayEntry[] => {
+  if (!props.startDate || !props.endDate) return []
+  const result: WeekDayEntry[] = []
+  const end = new Date(props.endDate + 'T00:00:00')
+  let cur = new Date(props.startDate + 'T00:00:00')
+  while (cur <= end) {
+    const y = cur.getFullYear()
+    const m = String(cur.getMonth() + 1).padStart(2, '0')
+    const d = String(cur.getDate()).padStart(2, '0')
+    const dateStr = `${y}-${m}-${d}`
+    const entry = dayMap.value[dateStr] ?? { total: 0, count: 0 }
+    result.push({
+      day: cur.getDate(),
+      dateStr,
+      weekday: cur.toLocaleDateString('en-US', { weekday: 'short' }),
+      total: entry.total,
+      count: entry.count,
+      label: cur.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    })
+    cur = new Date(cur)
+    cur.setDate(cur.getDate() + 1)
+  }
+  return result
 })
 
 // ── Single-month grid ───────────────────────────────────────────────────────
@@ -251,9 +316,11 @@ const hasMultipleYears = computed(() => yearGroups.value.length > 1)
 
 // ── Heat map scale (unified across whichever view is active) ─────────────────
 const maxTotal = computed(() => {
-  const days = isSingleMonth.value
-    ? singleMonthDays.value
-    : yearGroups.value.flatMap(yg => yg.months.flatMap(mg => mg.days))
+  const days = isSingleWeek.value
+    ? weekDays.value
+    : isSingleMonth.value
+      ? singleMonthDays.value
+      : yearGroups.value.flatMap(yg => yg.months.flatMap(mg => mg.days))
   return Math.max(...days.map(d => d.total), 1)
 })
 

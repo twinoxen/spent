@@ -24,6 +24,12 @@ export default defineEventHandler(async (event) => {
   // Summary totals for BOTH directions are always returned regardless of flow.
   const flow = (query.flow as string | undefined) === 'income' ? 'income' : 'expense'
 
+  // granularity=day → group spendOverTime by YYYY-MM-DD; default is month (YYYY-MM)
+  const granularity = (query.granularity as string | undefined) === 'day' ? 'day' : 'month'
+  const timeGroupExpr = granularity === 'day'
+    ? sql<string>`substr(${transactions.transactionDate}, 1, 10)`
+    : sql<string>`substr(${transactions.transactionDate}, 1, 7)`
+
   // Subquery: IDs of accounts belonging to this user
   const userAccountIds = db
     .select({ id: accounts.id })
@@ -140,17 +146,17 @@ export default defineEventHandler(async (event) => {
     .groupBy(transactions.purchasedBy)
     .orderBy(desc(flowSumExpr))
 
-  // Breakdown over time (by month) — dates stored as YYYY-MM-DD, so first 7 chars = YYYY-MM
+  // Breakdown over time — grouped by month (YYYY-MM) or day (YYYY-MM-DD) depending on granularity
   const spendOverTime = await db
     .select({
-      month: sql<string>`substr(${transactions.transactionDate}, 1, 7)`,
+      month: timeGroupExpr,
       total: flowSumExpr,
       count: sql<number>`count(*)`,
     })
     .from(transactions)
     .where(and(...flowConditions))
-    .groupBy(sql`substr(${transactions.transactionDate}, 1, 7)`)
-    .orderBy(sql`substr(${transactions.transactionDate}, 1, 7)`)
+    .groupBy(timeGroupExpr)
+    .orderBy(timeGroupExpr)
 
   return {
     flow,

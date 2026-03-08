@@ -85,6 +85,7 @@
 
 <script setup lang="ts">
 const DATE_RANGES = [
+  { label: '1W', value: '7' },
   { label: '1M', value: '30' },
   { label: '3M', value: '90' },
   { label: '6M', value: '180' },
@@ -110,6 +111,22 @@ const stepMonths = computed<number>(() => ({ '30': 1, '90': 3, '180': 6, '365': 
 // Sliding window dates derived from the current range + offset
 const windowDates = computed<{ startDate?: string; endDate?: string }>(() => {
   if (dateRange.value === 'all') return {}
+  if (dateRange.value === '7') {
+    const today = new Date()
+    const daysToMonday = (today.getDay() + 6) % 7 // days since last Monday
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - daysToMonday + rangeOffset.value * 7)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    // Use local date parts — toISOString() converts to UTC which can shift the
+    // date by one day in UTC-behind timezones (e.g. LA after ~17:00 local time)
+    const localDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return {
+      startDate: localDate(monday),
+      endDate: localDate(sunday),
+    }
+  }
   const now = new Date()
   const step = stepMonths.value
   // Last day of (current month shifted by offset * step months)
@@ -126,12 +143,17 @@ const dateRangeParams = computed<{ startDate?: string; endDate?: string }>(() =>
 
 const isLatestPeriod = computed(() => rangeOffset.value === 0)
 
-// Label shown in the period navigator: "January 2026" for 1M, "Nov 2025 – Jan 2026" for wider ranges
+// Label shown in the period navigator: "Mar 2 – Mar 8, 2026" for 1W, "January 2026" for 1M, "Nov 2025 – Jan 2026" for wider ranges
 const periodLabel = computed(() => {
   const { startDate, endDate } = windowDates.value
   if (!startDate || !endDate) return ''
   const start = new Date(startDate + 'T00:00:00')
   const end = new Date(endDate + 'T00:00:00')
+  if (dateRange.value === '7') {
+    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return `${startStr} – ${endStr}`
+  }
   if (stepMonths.value === 1) {
     return end.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   }
@@ -167,6 +189,7 @@ function buildStatsParams(extra: Record<string, any> = {}) {
   const params: any = { ...dateRangeParams.value }
   if (selectedPerson.value) params.purchasedBy = selectedPerson.value
   if (selectedAccountIds.value.length > 0) params.accountIds = selectedAccountIds.value.join(',')
+  if (dateRange.value === '7') params.granularity = 'day'
   return { ...params, ...extra }
 }
 
@@ -243,6 +266,11 @@ function toggleAccount(accountId: number) {
 }
 
 function navigateToMonth(month: string) {
+  if (month.length === 10) {
+    // YYYY-MM-DD (week view — click on a day bar)
+    navigateTo(`/transactions?startDate=${month}&endDate=${month}`)
+    return
+  }
   const [year, monthNum] = month.split('-')
   if (!year || !monthNum) return
   const start = `${year}-${monthNum}-01`
