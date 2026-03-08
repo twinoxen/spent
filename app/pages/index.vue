@@ -118,9 +118,13 @@ const windowDates = computed<{ startDate?: string; endDate?: string }>(() => {
     monday.setDate(today.getDate() - daysToMonday + rangeOffset.value * 7)
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
+    // Use local date parts — toISOString() converts to UTC which can shift the
+    // date by one day in UTC-behind timezones (e.g. LA after ~17:00 local time)
+    const localDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     return {
-      startDate: monday.toISOString().split('T')[0],
-      endDate: sunday.toISOString().split('T')[0],
+      startDate: localDate(monday),
+      endDate: localDate(sunday),
     }
   }
   const now = new Date()
