@@ -1110,7 +1110,7 @@ function openEditModal(tx: any) {
     type: tx.type ?? 'Purchase',
     description: tx.description ?? '',
     amount: tx.amount ?? 0,
-    accountId: tx.accountId ?? null,
+    accountId: tx.account?.id ?? null,
     merchantId: tx.merchant?.id ?? null,
     merchantInputValue: tx.merchant?.name ?? '',
     merchantIsNew: false,
