@@ -185,6 +185,7 @@ function buildStatsParams(extra: Record<string, any> = {}) {
   const params: any = { ...dateRangeParams.value }
   if (selectedPerson.value) params.purchasedBy = selectedPerson.value
   if (selectedAccountIds.value.length > 0) params.accountIds = selectedAccountIds.value.join(',')
+  if (dateRange.value === '7') params.granularity = 'day'
   return { ...params, ...extra }
 }
 
@@ -261,6 +262,11 @@ function toggleAccount(accountId: number) {
 }
 
 function navigateToMonth(month: string) {
+  if (month.length === 10) {
+    // YYYY-MM-DD (week view — click on a day bar)
+    navigateTo(`/transactions?startDate=${month}&endDate=${month}`)
+    return
+  }
   const [year, monthNum] = month.split('-')
   if (!year || !monthNum) return
   const start = `${year}-${monthNum}-01`

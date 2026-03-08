@@ -21,7 +21,7 @@ const emit = defineEmits<{
 const isDark = computed(() => colorMode.value === 'dark')
 
 const chartData = computed(() => ({
-  labels: props.data.map(d => formatMonth(d.month)),
+  labels: props.data.map(d => formatLabel(d.month)),
   datasets: [{
     label: 'Spending',
     data: props.data.map(d => d.total),
@@ -72,8 +72,15 @@ const options = computed(() => ({
   },
 }))
 
-function formatMonth(month: string): string {
-  const [year, monthNum] = month.split('-')
+function formatLabel(period: string): string {
+  if (period.length === 10) {
+    // YYYY-MM-DD (week / day granularity) → "Mon 3/2"
+    const [year, month, day] = period.split('-').map(Number)
+    return new Date(year, month - 1, day)
+      .toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })
+  }
+  // YYYY-MM (month granularity) → "Mar '26"
+  const [year, monthNum] = period.split('-')
   return new Date(parseInt(year), parseInt(monthNum) - 1)
     .toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
 }
