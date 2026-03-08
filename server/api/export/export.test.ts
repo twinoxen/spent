@@ -13,18 +13,25 @@ beforeEach(async () => {
   accountId = (await res.json()).id
 })
 
+let _seq = 0
+
 async function seedTransaction(overrides: Record<string, unknown> = {}) {
-  await api(user().cookie, '/api/transactions', {
+  const seq = ++_seq
+  const res = await api(user().cookie, '/api/transactions', {
     method: 'POST',
     body: JSON.stringify({
       accountId,
       transactionDate: '2026-02-14',
-      description: 'Test Purchase',
+      description: `Test Purchase ${seq}`,
       type: 'Purchase',
-      amount: 42.0,
+      amount: 42.0 + seq,
       ...overrides,
     }),
   })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`seedTransaction failed (${res.status}): ${text}`)
+  }
 }
 
 describe('GET /api/export/transactions', () => {

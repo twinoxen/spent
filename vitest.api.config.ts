@@ -6,8 +6,11 @@ export default defineConfig({
     globalSetup: ['./server/api/test-utils/global-setup.ts'],
     testTimeout: 30_000,
     hookTimeout: 60_000,
-    // Run all API test files sequentially in a single worker — the tests
-    // share one server instance and one DB, so parallelism would cause races.
+    // Run test files sequentially, one at a time.
+    // The tests share one server instance and one Postgres DB; concurrent
+    // file execution would interleave beforeAll seeds with beforeEach
+    // truncations, causing FK violations and 404s everywhere.
+    fileParallelism: false,
     pool: 'forks',
     poolOptions: {
       forks: { singleFork: true },

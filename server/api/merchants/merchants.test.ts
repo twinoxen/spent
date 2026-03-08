@@ -13,19 +13,26 @@ beforeEach(async () => {
   accountId = (await res.json()).id
 })
 
+let _txSeq = 0
+
 /** Helper: create a transaction that auto-creates a merchant with the given name. */
 async function seedMerchant(normalizedName: string, description = normalizedName) {
-  await api(user().cookie, '/api/transactions', {
+  const day = String((_txSeq++ % 28) + 1).padStart(2, '0')
+  const res = await api(user().cookie, '/api/transactions', {
     method: 'POST',
     body: JSON.stringify({
       accountId,
-      transactionDate: `2026-01-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
+      transactionDate: `2026-01-${day}`,
       description,
       type: 'Purchase',
-      amount: 10 + Math.random() * 100,
+      amount: 10 + _txSeq,
       merchantName: normalizedName,
     }),
   })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`seedMerchant failed (${res.status}): ${text}`)
+  }
 }
 
 describe('GET /api/merchants', () => {
