@@ -66,18 +66,20 @@
 
       <!-- Per-account cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <NuxtLink
+        <div
           v-for="account in accountsWithBalance"
           :key="account.id"
-          :to="`/transactions?accountId=${account.id}`"
-          class="block rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+          class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4"
         >
           <!-- Account header -->
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-2.5">
               <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: account.color ?? '#6366f1' }" />
               <div>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{{ account.name }}</p>
+                <NuxtLink
+                  :to="`/transactions?accountId=${account.id}`"
+                  class="text-sm font-semibold text-gray-900 dark:text-white leading-tight hover:underline"
+                >{{ account.name }}</NuxtLink>
                 <p v-if="account.institution" class="text-xs text-gray-400 dark:text-gray-500">{{ account.institution }}</p>
               </div>
             </div>
@@ -132,7 +134,7 @@
               Balance from {{ formatDate(account.balanceAsOfDate) }} — consider updating
             </p>
           </template>
-        </NuxtLink>
+        </div>
 
         <!-- Accounts without balance — prompt to set -->
         <NuxtLink
