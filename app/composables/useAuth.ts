@@ -3,13 +3,14 @@ interface AuthUser {
   email: string
 }
 
-const user = ref<AuthUser | null>(null)
-const initialized = ref(false)
-
 export function useAuth() {
+  const user = useState<AuthUser | null>('auth:user', () => null)
+  const initialized = useState<boolean>('auth:initialized', () => false)
+
   async function fetchUser() {
+    const apiFetch = useRequestFetch()
     try {
-      const data = await $fetch<AuthUser>('/api/auth/me')
+      const data = await apiFetch<AuthUser>('/api/auth/me')
       user.value = data
     } catch {
       user.value = null
