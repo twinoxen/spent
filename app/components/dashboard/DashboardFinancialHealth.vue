@@ -113,6 +113,14 @@
                 :style="{ width: `${Math.min((account.utilization ?? 0) * 100, 100)}%` }"
               />
             </div>
+            <!-- Snapshot reconciliation line -->
+            <div v-if="account.currentBalance !== null" class="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              <span>Snapshot: {{ formatCurrency(account.currentBalance) }}</span>
+              <span v-if="account.balanceAsOfDate"> ({{ formatDate(account.balanceAsOfDate) }})</span>
+              <span v-if="account.delta !== null && account.delta !== 0" class="ml-1" :class="account.delta > 0 ? 'text-amber-500 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'">
+                · {{ account.delta > 0 ? '+' : '' }}{{ formatCurrency(account.delta) }} pending
+              </span>
+            </div>
             <!-- Alerts -->
             <div class="flex items-center justify-between">
               <p v-if="account.utilization !== null && account.utilization >= 0.75" class="text-xs text-red-500 dark:text-red-400 font-medium">

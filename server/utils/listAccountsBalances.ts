@@ -16,6 +16,15 @@ interface AccountRow {
   createdAt: Date | null
 }
 
+// Sum of transactions that fall after the snapshot date, used for snapshot-anchored balance.
+// Pending transactions on the snapshot date are included because they represent charges
+// not yet reflected in the user-entered snapshot amount.
+function isAfterSnapshot(tx: Pick<TransactionRow, 'transactionDate' | 'isPending'>, snapshotDate: string): boolean {
+  if (tx.transactionDate > snapshotDate) return true
+  if (tx.transactionDate === snapshotDate && tx.isPending) return true
+  return false
+}
+
 interface TransactionRow {
   id: number
   accountId: number
@@ -72,6 +81,20 @@ export function buildRawAccountRows(accountsRows: AccountRow[], transactionRows:
       }
     }
 
+    // When the account has a reconciliation snapshot, compute the sum of transactions
+    // that occurred after (or pending on) the snapshot date. This allows the balance
+    // formula to use the snapshot as the authoritative anchor instead of the opening balance.
+    let snapshotTxAmount: number | null = null
+    if (account.balanceAsOfDate && account.currentBalance !== null) {
+      snapshotTxAmount = 0
+      for (const tx of txs) {
+        if (tx.isOpeningBalance) continue
+        if (isAfterSnapshot(tx, account.balanceAsOfDate)) {
+          snapshotTxAmount += tx.amount
+        }
+      }
+    }
+
     return {
       ...account,
       transactionCount: txs.length,
@@ -79,6 +102,7 @@ export function buildRawAccountRows(accountsRows: AccountRow[], transactionRows:
       postedTxAmount,
       pendingTxAmount,
       anchoredTxAmount,
+      snapshotTxAmount,
       openingTxAmount: latestOpening?.amount ?? null,
       openingTxDate: latestOpening?.transactionDate ?? null,
     }
