@@ -12,13 +12,19 @@
  *
  * Calculated balance includes both posted and pending transactions.
  *
- * Semantics:
- *   - assets (checking/savings/debit): calculated = opening + cashflow
- *   - credit cards (debt):          calculated = openingDebt - cashflow
+ * Semantics — two modes depending on whether a reconciliation snapshot exists:
  *
- * Optional reconciliation snapshot:
- *   currentBalance + balanceAsOfDate are user-entered snapshots.
- *   delta = calculatedBalance - currentBalance (only when snapshot exists)
+ *   Snapshot anchor (preferred when currentBalance + balanceAsOfDate are set):
+ *     calculatedBalance = snapshot + cashflow_since_snapshot   (assets)
+ *     calculatedBalance = snapshot - cashflow_since_snapshot   (credit cards)
+ *     delta = calculatedBalance - snapshot = ±cashflow_since_snapshot
+ *     Pending transactions on the snapshot date are included in cashflow_since_snapshot
+ *     because the user-entered snapshot typically reflects only posted activity.
+ *
+ *   Opening balance anchor (fallback when no snapshot):
+ *     calculatedBalance = openingBalance + cashflow_since_opening  (assets)
+ *     calculatedBalance = openingDebt    - cashflow_since_opening  (credit cards)
+ *     delta = calculatedBalance - currentBalance (only when snapshot exists)
  */
 
 const CREDIT_TYPES = new Set(['credit_card'])
@@ -63,6 +69,8 @@ export interface RawAccountRow {
   postedTxAmount?: number | null
   pendingTxAmount?: number | null
   anchoredTxAmount?: number | null
+  // Sum of tx after (or pending on) the snapshot date; null when no snapshot exists.
+  snapshotTxAmount?: number | null
   openingTxAmount: number | null
   openingTxDate: string | null
 }
@@ -76,9 +84,19 @@ export function computeAccountBalance(row: RawAccountRow): AccountWithBalance {
   const isCreditCard = CREDIT_TYPES.has(row.type)
   const openingBalance = row.openingTxAmount === null ? null : row.openingTxAmount
 
-  if (row.transactionCount > 0) {
+  // Snapshot-anchor mode: when the user has entered a reconciliation snapshot
+  // (currentBalance + balanceAsOfDate), use it as the ground-truth anchor.
+  // calculatedBalance = snapshot ± cashflow_since_snapshot, so the delta
+  // equals exactly the net transaction movement since the last reconciliation.
+  if (row.snapshotTxAmount !== null && row.snapshotTxAmount !== undefined && row.currentBalance !== null) {
+    const snapshotFlow = row.snapshotTxAmount
+    calculatedBalance = isCreditCard
+      ? row.currentBalance - snapshotFlow
+      : row.currentBalance + snapshotFlow
+  } else if (row.transactionCount > 0) {
+    // Opening-balance anchor fallback (no snapshot available).
     if (row.anchoredTxAmount !== undefined) {
-      // anchoredTxAmount currently contains:
+      // anchoredTxAmount contains:
       //   opening + sum(non-opening tx after anchor cutoff) when opening exists
       //   sum(all tx) when opening is absent
       const anchoredAggregate = row.anchoredTxAmount ?? 0
