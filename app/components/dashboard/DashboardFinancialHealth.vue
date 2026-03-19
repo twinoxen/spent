@@ -134,8 +134,9 @@
           </template>
 
           <!-- Checking / Savings / Debit layout -->
+          <!-- Show snapshot (currentBalance) so pending debits don't make it look like less money is available -->
           <template v-else>
-            <p class="text-xl font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(account.calculatedBalance) }}</p>
+            <p class="text-xl font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(account.currentBalance ?? account.calculatedBalance) }}</p>
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">available balance</p>
             <!-- Stale balance warning -->
             <p v-if="isStaleBalance(account.balanceAsOfDate)" class="text-xs text-amber-500 dark:text-amber-400 mt-1.5">
@@ -198,7 +199,8 @@ const summary = computed(() => {
       totalDebt += account.calculatedBalance
       if (account.creditLimit) totalCreditLimit += account.creditLimit
     } else if (ASSET_TYPES.has(account.type)) {
-      totalAssets += account.calculatedBalance
+      // Use snapshot balance for bank accounts so pending debits don't reduce displayed assets
+      totalAssets += account.currentBalance ?? account.calculatedBalance
     }
   }
 
