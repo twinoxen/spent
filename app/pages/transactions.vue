@@ -1295,7 +1295,7 @@ async function saveEdit() {
 
 
 function isPendingTx(transaction: { isPending?: boolean | null, clearingDate?: string | null }) {
-  return Boolean(transaction.isPending) || !transaction.clearingDate
+  return Boolean(transaction.isPending)
 }
 
 function formatDate(dateStr: string): string {
