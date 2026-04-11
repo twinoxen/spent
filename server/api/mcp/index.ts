@@ -1162,7 +1162,12 @@ function buildMcpServer(userId: number) {
       }
       updates.name = fields.name.trim()
     }
-    if (fields.amount !== undefined) updates.amount = fields.amount
+    if (fields.amount !== undefined) {
+      if (fields.amount <= 0) {
+        return { isError: true, content: [{ type: 'text', text: 'Amount must be positive.' }] }
+      }
+      updates.amount = fields.amount
+    }
     if (fields.occurrence !== undefined) updates.occurrence = fields.occurrence
     if (fields.dueDate !== undefined) updates.dueDate = fields.dueDate
     if (fields.isEndOfMonth !== undefined) updates.isEndOfMonth = fields.isEndOfMonth
