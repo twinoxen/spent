@@ -133,7 +133,6 @@
                   :items="monthOptions"
                   value-key="value"
                   label-key="label"
-                  @update:model-value="onMonthChange"
                 />
               </div>
               <div>
@@ -156,7 +155,6 @@
                   :items="monthOptions"
                   value-key="value"
                   label-key="label"
-                  @update:model-value="onMonthChange"
                 />
               </div>
               <div>
@@ -313,14 +311,13 @@ const monthOptions = [
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function daysInMonth(month: number): number {
-  // month: 0-11. Use leap year so Feb=29.
-  return new Date(2000, month + 1, 0).getDate()
+  // month: 0-11. Use a non-leap year so Feb=28 (matches the common case).
+  return new Date(2001, month + 1, 0).getDate()
 }
 
-const dayOptions = computed(() => {
-  const max = form.value.occurrence === 'monthly' ? 31 : daysInMonth(form.value.dueMonth)
-  return Array.from({ length: max }, (_, i) => ({ value: i + 1, label: ordinal(i + 1) }))
-})
+// Always offer 1–31. Runtime clamps to the month's actual last day when the
+// bill is evaluated, so "31" means "end of the month" for short months.
+const dayOptions = Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: ordinal(i + 1) }))
 
 // ── Occurrence change handler ──────────────────────────────────────────────
 
@@ -331,16 +328,6 @@ function onOccurrenceChange(val: Bill['occurrence']) {
   if (val === 'one_time') {
     form.value.dueDate = todayISO
   }
-  // Clamp day if switching to quarterly/annual where current dueMonth has fewer days
-  if (val === 'quarterly' || val === 'annual') {
-    const max = daysInMonth(form.value.dueMonth)
-    if (form.value.dueDayOfMonth > max) form.value.dueDayOfMonth = max
-  }
-}
-
-function onMonthChange() {
-  const max = daysInMonth(form.value.dueMonth)
-  if (form.value.dueDayOfMonth > max) form.value.dueDayOfMonth = max
 }
 
 // ── Display helpers ────────────────────────────────────────────────────────
@@ -409,31 +396,38 @@ const hasSpreadMonthly = computed(() =>
 
 // ── dueDate serialisation ──────────────────────────────────────────────────
 // We store a YYYY-MM-DD anchor date. For monthly, we just encode as
-// 2000-MM-DD where MM=01 always (the day is what matters).
+// 2001-MM-DD where MM=01 for monthly (the day is what matters).
 // For quarterly/annual we encode month + day from the form selects.
 
-function buildDueDate(): string {
+// Returns { dueDate, isEndOfMonth }. For quarterly/annual bills, if the user
+// picked a day beyond the selected month's length, we clamp to the month end
+// and flag isEndOfMonth so reload shows "31" again (user intent preserved).
+function buildDuePayload(): { dueDate: string; isEndOfMonth: boolean } {
   const { occurrence, dueDate, dueMonth, dueDayOfMonth } = form.value
-  if (occurrence === 'one_time') return dueDate
-  // Monthly: Jan has 31 days so 1-31 is always storable.
+  if (occurrence === 'one_time') return { dueDate, isEndOfMonth: false }
   if (occurrence === 'monthly') {
+    // Monthly stores in Jan (31 days) so 1–31 is always valid.
     const day = Math.min(Math.max(dueDayOfMonth, 1), 31)
-    return `2000-01-${String(day).padStart(2, '0')}`
+    return { dueDate: `2001-01-${String(day).padStart(2, '0')}`, isEndOfMonth: false }
   }
-  // Quarterly / annual: clamp day to the selected month's length (2000 is a leap year).
   const maxDay = daysInMonth(dueMonth)
-  const day = Math.min(Math.max(dueDayOfMonth, 1), maxDay)
+  const picked = Math.min(Math.max(dueDayOfMonth, 1), 31)
+  const day = Math.min(picked, maxDay)
   const month = String(dueMonth + 1).padStart(2, '0')
-  return `2000-${month}-${String(day).padStart(2, '0')}`
+  return {
+    dueDate: `2001-${month}-${String(day).padStart(2, '0')}`,
+    isEndOfMonth: picked > maxDay,
+  }
 }
 
 function parseDueDateIntoForm(bill: Bill) {
   const d = new Date(bill.dueDate + 'T12:00:00')
   form.value.dueDate = bill.dueDate
   form.value.dueMonth = d.getMonth()
-  // Legacy: isEndOfMonth=true stored day 28. Translate to the real last day.
+  // If the record was saved with end-of-month intent (legacy toggle OR user
+  // picked a day beyond the month length), show 31 in the picker.
   if (bill.isEndOfMonth) {
-    form.value.dueDayOfMonth = bill.occurrence === 'monthly' ? 31 : daysInMonth(d.getMonth())
+    form.value.dueDayOfMonth = 31
   } else {
     form.value.dueDayOfMonth = d.getDate()
   }
@@ -499,12 +493,13 @@ async function saveBill() {
   }
   saving.value = true
   try {
+    const due = buildDuePayload()
     const payload = {
       name: form.value.name,
       amount: form.value.amount,
       occurrence: form.value.occurrence,
-      dueDate: buildDueDate(),
-      isEndOfMonth: false,
+      dueDate: due.dueDate,
+      isEndOfMonth: due.isEndOfMonth,
       spreadMonthly: form.value.spreadMonthly,
       isActive: form.value.isActive,
       notes: form.value.notes || null,
