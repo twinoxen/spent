@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod'
 import { eq, desc, and, not, sql, inArray, isNull, or } from 'drizzle-orm'
 import { getDb } from '../../db'
-import { transactions, accounts, categories, merchants, merchantRules } from '../../db/schema'
+import { transactions, accounts, categories, merchants, merchantRules, bills } from '../../db/schema'
 import { upsertOpeningBalanceTransaction } from '../../utils/openingBalance'
 import { buildTransactionWhereClause } from '../../utils/transactionFilters'
 import { generateFingerprint } from '../../utils/fingerprint'
@@ -1091,6 +1091,113 @@ function buildMcpServer(userId: number) {
     ])
 
     return { content: [{ type: 'text', text: csv }] }
+  })
+
+  // ─── Bills ─────────────────────────────────────────────────────────────────
+
+  server.tool('list_bills', 'List all bills (recurring and one-time payment reminders). Bills are informational only and do not affect account balances.', {}, async () => {
+    const db = await getDb()
+    const results = await db
+      .select()
+      .from(bills)
+      .where(eq(bills.userId, userId))
+      .orderBy(bills.name)
+
+    return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] }
+  })
+
+  server.tool('create_bill', 'Create a new bill reminder.', {
+    name: z.string().describe('Bill name, e.g. "Netflix", "Rent"'),
+    amount: z.number().positive().describe('Bill amount in dollars'),
+    occurrence: z.enum(['one_time', 'monthly', 'quarterly', 'annual']).describe('How often the bill occurs'),
+    dueDate: z.string().describe('YYYY-MM-DD anchor date. For one_time: exact date. For monthly: day of month matters (e.g. 2000-01-15 for 15th). For quarterly: month+day determines cycle (e.g. 2000-01-15 = Jan/Apr/Jul/Oct). For annual: month+day determines recurrence.'),
+    isEndOfMonth: z.boolean().optional().default(false).describe('If true, bill falls on the last day of the month'),
+    spreadMonthly: z.boolean().optional().default(false).describe('For quarterly/annual: display a monthly equivalent amount (amount/3 or amount/12)'),
+    isActive: z.boolean().optional().default(true).describe('Whether this bill is active'),
+    notes: z.string().nullable().optional().describe('Optional notes'),
+  }, async (args) => {
+    const db = await getDb()
+
+    if (!args.name.trim()) {
+      return { isError: true, content: [{ type: 'text', text: 'Bill name is required.' }] }
+    }
+
+    if (args.amount <= 0) {
+      return { isError: true, content: [{ type: 'text', text: 'Amount must be positive.' }] }
+    }
+
+    const [created] = await db.insert(bills).values({
+      userId,
+      name: args.name.trim(),
+      amount: args.amount,
+      occurrence: args.occurrence,
+      dueDate: args.dueDate,
+      isEndOfMonth: args.isEndOfMonth ?? false,
+      spreadMonthly: args.spreadMonthly ?? false,
+      isActive: args.isActive ?? true,
+      notes: args.notes ?? null,
+    }).returning()
+
+    return { content: [{ type: 'text', text: JSON.stringify(created, null, 2) }] }
+  })
+
+  server.tool('update_bill', 'Update an existing bill reminder.', {
+    id: z.number().describe('Bill ID'),
+    name: z.string().optional().describe('Bill name, e.g. "Netflix", "Rent"'),
+    amount: z.number().positive().optional().describe('Bill amount in dollars'),
+    occurrence: z.enum(['one_time', 'monthly', 'quarterly', 'annual']).optional().describe('How often the bill occurs'),
+    dueDate: z.string().optional().describe('YYYY-MM-DD anchor date. For one_time: exact date. For monthly: day of month matters (e.g. 2000-01-15 for 15th). For quarterly: month+day determines cycle (e.g. 2000-01-15 = Jan/Apr/Jul/Oct). For annual: month+day determines recurrence.'),
+    isEndOfMonth: z.boolean().optional().describe('If true, bill falls on the last day of the month'),
+    spreadMonthly: z.boolean().optional().describe('For quarterly/annual: display a monthly equivalent amount (amount/3 or amount/12)'),
+    isActive: z.boolean().optional().describe('Whether this bill is active'),
+    notes: z.string().nullable().optional().describe('Optional notes'),
+  }, async (args) => {
+    const db = await getDb()
+    const { id, ...fields } = args
+    const updates: Record<string, unknown> = {}
+
+    if (fields.name !== undefined) {
+      if (!fields.name.trim()) {
+        return { isError: true, content: [{ type: 'text', text: 'Bill name cannot be empty.' }] }
+      }
+      updates.name = fields.name.trim()
+    }
+    if (fields.amount !== undefined) updates.amount = fields.amount
+    if (fields.occurrence !== undefined) updates.occurrence = fields.occurrence
+    if (fields.dueDate !== undefined) updates.dueDate = fields.dueDate
+    if (fields.isEndOfMonth !== undefined) updates.isEndOfMonth = fields.isEndOfMonth
+    if (fields.spreadMonthly !== undefined) updates.spreadMonthly = fields.spreadMonthly
+    if (fields.isActive !== undefined) updates.isActive = fields.isActive
+    if (fields.notes !== undefined) updates.notes = fields.notes
+
+    const [updated] = await db
+      .update(bills)
+      .set(updates)
+      .where(and(eq(bills.id, id), eq(bills.userId, userId)))
+      .returning()
+
+    if (!updated) {
+      return { isError: true, content: [{ type: 'text', text: 'Bill not found or does not belong to you.' }] }
+    }
+
+    return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
+  })
+
+  server.tool('delete_bill', 'Delete a bill reminder.', {
+    id: z.number().describe('Bill ID'),
+  }, async (args) => {
+    const db = await getDb()
+
+    const [deleted] = await db
+      .delete(bills)
+      .where(and(eq(bills.id, args.id), eq(bills.userId, userId)))
+      .returning({ id: bills.id })
+
+    if (!deleted) {
+      return { isError: true, content: [{ type: 'text', text: 'Bill not found or does not belong to you.' }] }
+    }
+
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, deletedId: args.id }) }] }
   })
 
   return server
