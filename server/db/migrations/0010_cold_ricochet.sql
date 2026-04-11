@@ -1,4 +1,4 @@
-CREATE TABLE "bills" (
+CREATE TABLE IF NOT EXISTS "bills" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"name" text NOT NULL,
@@ -12,5 +12,9 @@ CREATE TABLE "bills" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-ALTER TABLE "bills" ADD CONSTRAINT "bills_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "bills_user_id_idx" ON "bills" USING btree ("user_id");
+DO $$ BEGIN
+  ALTER TABLE "bills" ADD CONSTRAINT "bills_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "bills_user_id_idx" ON "bills" USING btree ("user_id");
