@@ -157,3 +157,26 @@ export const stagingTransactions = pgTable('staging_transactions', {
 }, (table) => ({
   importSessionIdIdx: index('staging_transactions_import_session_id_idx').on(table.importSessionId),
 }))
+
+export const bills = pgTable('bills', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  amount: doublePrecision('amount').notNull(),
+  // 'one_time' | 'monthly' | 'quarterly' | 'annual'
+  occurrence: text('occurrence').notNull().default('monthly'),
+  // For one_time: exact date (YYYY-MM-DD).
+  // For monthly: anchor date — day portion determines day-of-month (overridden by isEndOfMonth).
+  // For quarterly: anchor date — month+day determines the quarterly cycle.
+  // For annual: anchor date — month+day determines yearly recurrence.
+  dueDate: text('due_date').notNull(),
+  // When true, bill falls on last day of month (variable: Feb=28/29, Apr=30, etc.)
+  isEndOfMonth: boolean('is_end_of_month').notNull().default(false),
+  // For quarterly/annual: display monthly equivalent amount (amount/3 or amount/12)
+  spreadMonthly: boolean('spread_monthly').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').default(sql`now()`),
+}, (table) => ({
+  userIdIdx: index('bills_user_id_idx').on(table.userId),
+}))
