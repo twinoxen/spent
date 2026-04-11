@@ -114,22 +114,14 @@
             </div>
 
             <!-- Due day (monthly) -->
-            <div v-if="form.occurrence === 'monthly'" class="space-y-3">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Day of Month (1–28)</label>
-                <UInput
-                  v-model.number="form.dueDayOfMonth"
-                  type="number"
-                  :min="1"
-                  :max="28"
-                  placeholder="15"
-                  :disabled="form.isEndOfMonth"
-                />
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-700 dark:text-gray-300">End of month</span>
-                <USwitch v-model="form.isEndOfMonth" />
-              </div>
+            <div v-if="form.occurrence === 'monthly'">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Day of Month</label>
+              <USelect
+                v-model="form.dueDayOfMonth"
+                :items="dayOptions"
+                value-key="value"
+                label-key="label"
+              />
             </div>
 
             <!-- Due day + anchor month (quarterly) -->
@@ -141,22 +133,17 @@
                   :items="monthOptions"
                   value-key="value"
                   label-key="label"
+                  @update:model-value="onMonthChange"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Day of Month (1–28)</label>
-                <UInput
-                  v-model.number="form.dueDayOfMonth"
-                  type="number"
-                  :min="1"
-                  :max="28"
-                  placeholder="15"
-                  :disabled="form.isEndOfMonth"
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Day of Month</label>
+                <USelect
+                  v-model="form.dueDayOfMonth"
+                  :items="dayOptions"
+                  value-key="value"
+                  label-key="label"
                 />
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-700 dark:text-gray-300">End of month</span>
-                <USwitch v-model="form.isEndOfMonth" />
               </div>
             </div>
 
@@ -169,22 +156,17 @@
                   :items="monthOptions"
                   value-key="value"
                   label-key="label"
+                  @update:model-value="onMonthChange"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Day of Month (1–28)</label>
-                <UInput
-                  v-model.number="form.dueDayOfMonth"
-                  type="number"
-                  :min="1"
-                  :max="28"
-                  placeholder="15"
-                  :disabled="form.isEndOfMonth"
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Day of Month</label>
+                <USelect
+                  v-model="form.dueDayOfMonth"
+                  :items="dayOptions"
+                  value-key="value"
+                  label-key="label"
                 />
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-700 dark:text-gray-300">End of month</span>
-                <USwitch v-model="form.isEndOfMonth" />
               </div>
             </div>
 
@@ -295,8 +277,7 @@ function defaultForm() {
     occurrence: 'monthly' as Bill['occurrence'],
     dueDate: todayISO,      // used for one_time
     dueMonth: 0,            // 0–11, used for quarterly/annual anchor
-    dueDayOfMonth: 1,       // 1–28, used for monthly/quarterly/annual
-    isEndOfMonth: false,
+    dueDayOfMonth: 1,       // 1–31, capped to month length for quarterly/annual
     spreadMonthly: false,
     isActive: true,
     notes: '',
@@ -331,16 +312,35 @@ const monthOptions = [
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+function daysInMonth(month: number): number {
+  // month: 0-11. Use leap year so Feb=29.
+  return new Date(2000, month + 1, 0).getDate()
+}
+
+const dayOptions = computed(() => {
+  const max = form.value.occurrence === 'monthly' ? 31 : daysInMonth(form.value.dueMonth)
+  return Array.from({ length: max }, (_, i) => ({ value: i + 1, label: ordinal(i + 1) }))
+})
+
 // ── Occurrence change handler ──────────────────────────────────────────────
 
 function onOccurrenceChange(val: Bill['occurrence']) {
-  form.value.isEndOfMonth = false
   if (val === 'one_time' || val === 'monthly') {
     form.value.spreadMonthly = false
   }
   if (val === 'one_time') {
     form.value.dueDate = todayISO
   }
+  // Clamp day if switching to quarterly/annual where current dueMonth has fewer days
+  if (val === 'quarterly' || val === 'annual') {
+    const max = daysInMonth(form.value.dueMonth)
+    if (form.value.dueDayOfMonth > max) form.value.dueDayOfMonth = max
+  }
+}
+
+function onMonthChange() {
+  const max = daysInMonth(form.value.dueMonth)
+  if (form.value.dueDayOfMonth > max) form.value.dueDayOfMonth = max
 }
 
 // ── Display helpers ────────────────────────────────────────────────────────
@@ -365,28 +365,34 @@ function quarterlyMonths(anchorMonth: number): number[] {
   return [offset, offset + 3, offset + 6, offset + 9].map(m => m % 12)
 }
 
+function effectiveDay(bill: Bill): number {
+  // Legacy records with isEndOfMonth=true stored day capped at 28.
+  // Translate to the real last day of the month for display.
+  const d = new Date(bill.dueDate + 'T12:00:00')
+  if (bill.isEndOfMonth) {
+    if (bill.occurrence === 'monthly') return 31
+    return daysInMonth(d.getMonth())
+  }
+  return d.getDate()
+}
+
 function formatDue(bill: Bill): string {
   const d = new Date(bill.dueDate + 'T12:00:00')
   const month = d.getMonth()
-  const day = d.getDate()
+  const day = effectiveDay(bill)
 
   switch (bill.occurrence) {
     case 'one_time': {
       const year = d.getFullYear()
-      return `${MONTH_SHORT[month]} ${day}, ${year}`
+      return `${MONTH_SHORT[month]} ${d.getDate()}, ${year}`
     }
     case 'monthly':
-      return bill.isEndOfMonth ? 'End of month' : `${ordinal(day)} of month`
+      return `${ordinal(day)} of month`
     case 'quarterly': {
-      if (bill.isEndOfMonth) return 'End of month, quarterly'
       const months = quarterlyMonths(month)
       return `${months.map(m => MONTH_SHORT[m]).join('/')} ${day}`
     }
     case 'annual':
-      if (bill.isEndOfMonth) {
-        const lastDay = new Date(2000, month + 1, 0).getDate()
-        return `${MONTH_SHORT[month]} ${lastDay} (annual)`
-      }
       return `${MONTH_SHORT[month]} ${day} (annual)`
   }
 }
@@ -407,24 +413,30 @@ const hasSpreadMonthly = computed(() =>
 // For quarterly/annual we encode month + day from the form selects.
 
 function buildDueDate(): string {
-  const { occurrence, dueDate, dueMonth, dueDayOfMonth, isEndOfMonth } = form.value
+  const { occurrence, dueDate, dueMonth, dueDayOfMonth } = form.value
   if (occurrence === 'one_time') return dueDate
-  // For monthly: use fixed year/month, vary day
+  // Monthly: Jan has 31 days so 1-31 is always storable.
   if (occurrence === 'monthly') {
-    const day = isEndOfMonth ? 28 : Math.min(Math.max(dueDayOfMonth, 1), 28)
+    const day = Math.min(Math.max(dueDayOfMonth, 1), 31)
     return `2000-01-${String(day).padStart(2, '0')}`
   }
-  // quarterly / annual: month + day matter
+  // Quarterly / annual: clamp day to the selected month's length (2000 is a leap year).
+  const maxDay = daysInMonth(dueMonth)
+  const day = Math.min(Math.max(dueDayOfMonth, 1), maxDay)
   const month = String(dueMonth + 1).padStart(2, '0')
-  const day = isEndOfMonth ? 28 : String(Math.min(Math.max(dueDayOfMonth, 1), 28)).padStart(2, '0')
-  return `2000-${month}-${day}`
+  return `2000-${month}-${String(day).padStart(2, '0')}`
 }
 
 function parseDueDateIntoForm(bill: Bill) {
   const d = new Date(bill.dueDate + 'T12:00:00')
   form.value.dueDate = bill.dueDate
   form.value.dueMonth = d.getMonth()
-  form.value.dueDayOfMonth = d.getDate()
+  // Legacy: isEndOfMonth=true stored day 28. Translate to the real last day.
+  if (bill.isEndOfMonth) {
+    form.value.dueDayOfMonth = bill.occurrence === 'monthly' ? 31 : daysInMonth(d.getMonth())
+  } else {
+    form.value.dueDayOfMonth = d.getDate()
+  }
 }
 
 // ── Modal open/close ───────────────────────────────────────────────────────
@@ -444,7 +456,6 @@ function openEditModal(bill: Bill) {
     dueDate: bill.dueDate,
     dueMonth: 0,
     dueDayOfMonth: 1,
-    isEndOfMonth: bill.isEndOfMonth,
     spreadMonthly: bill.spreadMonthly,
     isActive: bill.isActive,
     notes: bill.notes ?? '',
@@ -493,7 +504,7 @@ async function saveBill() {
       amount: form.value.amount,
       occurrence: form.value.occurrence,
       dueDate: buildDueDate(),
-      isEndOfMonth: form.value.isEndOfMonth,
+      isEndOfMonth: false,
       spreadMonthly: form.value.spreadMonthly,
       isActive: form.value.isActive,
       notes: form.value.notes || null,
