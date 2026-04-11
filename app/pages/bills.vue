@@ -5,6 +5,8 @@
       <UButton label="Add Bill" color="primary" icon="i-heroicons-plus" @click="openAddModal" />
     </div>
 
+    <p v-if="loadError" class="text-red-500 text-sm mb-4">{{ loadError }}</p>
+
     <div v-if="loading" class="flex justify-center py-16">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
     </div>
@@ -22,7 +24,7 @@
               <th class="py-3 pr-4">Amount</th>
               <th class="py-3 pr-4">Occurrence</th>
               <th class="py-3 pr-4">Due</th>
-              <th class="py-3 pr-4">Monthly equiv</th>
+              <th v-if="hasSpreadMonthly" class="py-3 pr-4">Monthly equiv</th>
               <th class="py-3 pr-4">Active</th>
               <th class="py-3">Actions</th>
             </tr>
@@ -39,7 +41,7 @@
                 <UBadge :label="occurrenceLabel(bill.occurrence)" :color="occurrenceColor(bill.occurrence)" variant="soft" size="sm" />
               </td>
               <td class="py-3 pr-4 text-gray-600 dark:text-gray-400">{{ formatDue(bill) }}</td>
-              <td class="py-3 pr-4 text-gray-600 dark:text-gray-400 font-mono">
+              <td v-if="hasSpreadMonthly" class="py-3 pr-4 text-gray-600 dark:text-gray-400 font-mono">
                 <span v-if="bill.spreadMonthly && (bill.occurrence === 'quarterly' || bill.occurrence === 'annual')">
                   {{ formatMoney(monthlyEquiv(bill)) }}
                 </span>
@@ -216,6 +218,7 @@
           </div>
 
           <template #footer>
+            <p v-if="saveError" class="text-red-500 text-sm mb-3">{{ saveError }}</p>
             <div class="flex justify-end gap-3">
               <UButton label="Cancel" color="neutral" variant="ghost" @click="showModal = false" />
               <UButton :label="editingBill ? 'Update' : 'Create'" color="primary" :loading="saving" @click="saveBill" />
@@ -272,6 +275,9 @@ const bills = ref<Bill[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const deleting = ref(false)
+
+const saveError = ref<string | null>(null)
+const loadError = ref<string | null>(null)
 
 const showModal = ref(false)
 const showDeleteModal = ref(false)
@@ -377,7 +383,10 @@ function formatDue(bill: Bill): string {
       return `${months.map(m => MONTH_SHORT[m]).join('/')} ${day}`
     }
     case 'annual':
-      if (bill.isEndOfMonth) return `${MONTH_SHORT[month]} 31 (annual)`
+      if (bill.isEndOfMonth) {
+        const lastDay = new Date(2000, month + 1, 0).getDate()
+        return `${MONTH_SHORT[month]} ${lastDay} (annual)`
+      }
       return `${MONTH_SHORT[month]} ${day} (annual)`
   }
 }
@@ -387,6 +396,10 @@ function monthlyEquiv(bill: Bill): number {
   if (bill.occurrence === 'annual') return bill.amount / 12
   return bill.amount
 }
+
+const hasSpreadMonthly = computed(() =>
+  bills.value.some(b => b.spreadMonthly && (b.occurrence === 'quarterly' || b.occurrence === 'annual'))
+)
 
 // ── dueDate serialisation ──────────────────────────────────────────────────
 // We store a YYYY-MM-DD anchor date. For monthly, we just encode as
@@ -453,12 +466,26 @@ async function loadBills() {
     bills.value = await $fetch<Bill[]>('/api/bills')
   } catch (error) {
     console.error('Failed to load bills:', error)
+    loadError.value = 'Failed to load bills.'
   } finally {
     loading.value = false
   }
 }
 
 async function saveBill() {
+  saveError.value = null
+  if (!form.value.name.trim()) {
+    saveError.value = 'Name is required.'
+    return
+  }
+  if (!form.value.amount || form.value.amount <= 0) {
+    saveError.value = 'Amount must be greater than 0.'
+    return
+  }
+  if (!form.value.dueDate && form.value.occurrence === 'one_time') {
+    saveError.value = 'Due date is required.'
+    return
+  }
   saving.value = true
   try {
     const payload = {
@@ -478,8 +505,9 @@ async function saveBill() {
     }
     showModal.value = false
     await loadBills()
-  } catch (error) {
-    console.error('Failed to save bill:', error)
+  } catch (e: any) {
+    console.error('Failed to save bill:', e)
+    saveError.value = e?.data?.message || 'Failed to save bill.'
   } finally {
     saving.value = false
   }
@@ -493,8 +521,9 @@ async function deleteBill() {
     showDeleteModal.value = false
     deletingBill.value = null
     await loadBills()
-  } catch (error) {
-    console.error('Failed to delete bill:', error)
+  } catch (e: any) {
+    console.error('Failed to delete bill:', e)
+    loadError.value = e?.data?.message || 'Failed to delete bill.'
   } finally {
     deleting.value = false
   }
