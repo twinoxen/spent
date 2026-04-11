@@ -33,3 +33,6 @@ data/
 .vercel
 .env*.local
 .claude/settings.json
+
+# Git worktrees
+.worktrees/

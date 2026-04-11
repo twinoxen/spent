@@ -71,6 +71,13 @@
       "when": 1772781000000,
       "tag": "0009_fix_credit_card_opening_balance_sign",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1775924244161,
+      "tag": "0010_cold_ricochet",
+      "breakpoints": true
     }
   ]
 }
