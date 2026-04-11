@@ -36,26 +36,40 @@ The `main` branch is protected. **All changes must be made via a pull request** 
 | `npm run dev` | Start the dev server |
 | `npm run dev:fresh` | Reset the database and start the dev server |
 | `npm run build` | Build for production |
+| `npm run db:up` | Start local Postgres container (Docker) |
+| `npm run db:down` | Stop containers |
 | `npm run db:generate` | Generate Drizzle migration files |
 | `npm run db:migrate` | Run pending migrations |
 | `npm run db:studio` | Open Drizzle Studio (DB browser) |
-| `npm run db:reset` | Wipe and re-migrate the local SQLite database |
+| `npm run db:reset` | Wipe local Postgres volume and re-migrate |
+
+## Testing
+
+| Command | Description |
+|---|---|
+| `npm test` | Unit tests (Vitest) |
+| `npm run test:api` | API integration tests (Vitest, requires DB) |
+| `npm run test:all` | Unit + API tests |
+| `npx playwright test` | E2E tests (Playwright, auto-starts dev server) |
 
 ## Stack
 
-- **Framework:** Nuxt 4 (Vue 3)
-- **Database:** SQLite via `better-sqlite3` + Drizzle ORM
+- **Framework:** Nuxt 4 (Vue 3) — frontend code lives in `app/`, server code in `server/`
+- **Database:** Postgres via Drizzle ORM — local Docker, production Neon
 - **UI:** Nuxt UI + Tailwind CSS 4
 - **Auth:** JWT (`jose`) + bcrypt
-- **AI:** OpenAI SDK
-- **PDF/CSV parsing:** `unpdf`, `csv-parse`
+- **AI:** OpenAI SDK (transaction categorization)
+- **MCP:** `@modelcontextprotocol/sdk` — MCP server at `/api/mcp`
+- **CSV/PDF parsing:** `csv-parse`, `unpdf`
+- **Deployment:** Vercel
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in the required values:
+Copy `.env.example` to `.env.local` and fill in required values:
 
 | Variable | Description |
 |---|---|
+| `STORAGE_DATABASE_URL` | Postgres connection URL (required in all environments) |
 | `OPENAI_API_KEY` | OpenAI API key for AI-assisted categorization |
 | `JWT_SECRET` | Secret used to sign authentication tokens |
 | `GITHUB_TOKEN` | Full-access GitHub PAT for repo management (branch protection, PRs) |

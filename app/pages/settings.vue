@@ -8,6 +8,65 @@
     <UCard>
       <template #header>
         <div class="flex items-center gap-2">
+          <UIcon name="i-heroicons-lock-closed" class="w-5 h-5 text-primary-500" />
+          <h2 class="text-base font-semibold text-gray-900 dark:text-white">Change Password</h2>
+        </div>
+      </template>
+
+      <div class="space-y-3">
+        <UInput
+          v-model="pwForm.current"
+          type="password"
+          placeholder="Current password"
+          :disabled="pwSaving"
+          autocomplete="current-password"
+        />
+        <UInput
+          v-model="pwForm.new"
+          type="password"
+          placeholder="New password"
+          :disabled="pwSaving"
+          autocomplete="new-password"
+        />
+        <UInput
+          v-model="pwForm.confirm"
+          type="password"
+          placeholder="Confirm new password"
+          :disabled="pwSaving"
+          autocomplete="new-password"
+          @keydown.enter="changePassword"
+        />
+        <UAlert
+          v-if="pwError"
+          color="error"
+          variant="soft"
+          icon="i-heroicons-exclamation-circle"
+          :description="pwError"
+        />
+        <UAlert
+          v-if="pwSuccess"
+          color="success"
+          variant="soft"
+          icon="i-heroicons-check-circle"
+          description="Password updated successfully."
+        />
+        <div class="flex justify-end pt-1">
+          <UButton
+            label="Update Password"
+            icon="i-heroicons-lock-closed"
+            color="primary"
+            variant="soft"
+            :loading="pwSaving"
+            :disabled="!pwForm.current || !pwForm.new || !pwForm.confirm || pwForm.new !== pwForm.confirm"
+            @click="changePassword"
+          />
+        </div>
+      </div>
+    </UCard>
+
+    <UCard>
+      <template #header>
+        <div class="flex items-center gap-2">
           <UIcon name="i-heroicons-key" class="w-5 h-5 text-primary-500" />
           <h2 class="text-base font-semibold text-gray-900 dark:text-white">API Tokens</h2>
         </div>
@@ -164,6 +223,34 @@ interface ApiToken {
   id: number
   name: string
   createdAt: string | null
+}
+
+const pwForm = reactive({ current: '', new: '', confirm: '' })
+const pwSaving = ref(false)
+const pwError = ref<string | null>(null)
+const pwSuccess = ref(false)
+
+async function changePassword() {
+  if (!pwForm.current || !pwForm.new || !pwForm.confirm) return
+  if (pwForm.new !== pwForm.confirm) return
+  pwSaving.value = true
+  pwError.value = null
+  pwSuccess.value = false
+  try {
+    await $fetch('/api/auth/password', {
+      method: 'PUT',
+      body: { currentPassword: pwForm.current, newPassword: pwForm.new },
+    })
+    pwForm.current = ''
+    pwForm.new = ''
+    pwForm.confirm = ''
+    pwSuccess.value = true
+    setTimeout(() => { pwSuccess.value = false }, 3000)
+  } catch (e: any) {
+    pwError.value = e?.data?.message ?? 'Failed to update password'
+  } finally {
+    pwSaving.value = false
+  }
 }
 
 const newTokenName = ref('')
