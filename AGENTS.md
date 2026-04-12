@@ -63,6 +63,12 @@ The `main` branch is protected. **All changes must be made via a pull request** 
 - **CSV/PDF parsing:** `csv-parse`, `unpdf`
 - **Deployment:** Vercel
 
+## Project Wiki
+
+Project knowledge, design rationale, and architectural context live in `docs/`. Check `docs/index.md` for an overview before making significant changes. After architectural changes, update or flag relevant wiki pages in `docs/`.
+
+The wiki schema is defined in `docs/AGENTS.md`.
+
 ## Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in required values:
