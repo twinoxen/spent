@@ -10,6 +10,7 @@ Project wiki catalog, organized by category.
 - [Database & ORM](architecture/database.md) — Drizzle ORM setup, dual-driver strategy (Neon vs node-postgres), schema overview
 - [Authentication & Authorization](architecture/authentication.md) — JWT-based auth, middleware, OAuth flow
 - [MCP Server](architecture/mcp-server.md) — Model Context Protocol integration for external AI agents
+- [Reserves / Envelopes](architecture/database.md#reserves--envelopes) — Internal cash earmarks that reduce available-to-spend without creating bank transactions
 
 ## Decisions
 

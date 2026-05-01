@@ -157,6 +157,7 @@ const navItems = [
   { to: '/accounts', label: 'Accounts', icon: 'i-heroicons-credit-card' },
   { to: '/categories', label: 'Categories', icon: 'i-heroicons-tag' },
   { to: '/bills', label: 'Bills', icon: 'i-heroicons-calendar-days' },
+  { to: '/reserves', label: 'Reserves', icon: 'i-heroicons-banknotes' },
   { to: '/review', label: 'Review', icon: 'i-heroicons-check-circle' },
   { to: '/import', label: 'Import', icon: 'i-heroicons-arrow-up-tray' },
 ]

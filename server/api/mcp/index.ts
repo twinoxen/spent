@@ -1,15 +1,30 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
-import { eq, desc, and, not, sql, inArray, isNull, or } from 'drizzle-orm'
+import { eq, desc, asc, and, not, sql, inArray, isNull, or } from 'drizzle-orm'
 import { getDb } from '../../db'
-import { transactions, accounts, categories, merchants, merchantRules, bills } from '../../db/schema'
+import { transactions, accounts, categories, merchants, merchantRules, bills, reserves } from '../../db/schema'
 import { upsertOpeningBalanceTransaction } from '../../utils/openingBalance'
 import { buildTransactionWhereClause } from '../../utils/transactionFilters'
 import { generateFingerprint } from '../../utils/fingerprint'
 import { toCsv } from '../../utils/exportFormats'
 import { interAccountTransferCondition } from '../../utils/transferExclusion'
 import { listAccountsWithBalances } from '../../utils/listAccountsBalances'
+import {
+  RESERVE_CONTRIBUTION_CADENCES,
+  RESERVE_MOVEMENT_TYPES,
+  RESERVE_PAYMENT_CADENCES,
+  RESERVE_STATUSES,
+  addReserveMovement,
+  autoAccrueReserves,
+  createReserve,
+  getAvailabilitySummary,
+  getReserveForUser,
+  listReserveMovements,
+  listReservesForUser,
+  roundMoney,
+  verifyAccountBelongsToUser,
+} from '../../utils/reserves'
 
 function buildMcpServer(userId: number) {
   const server = new McpServer({ name: 'spent', version: '1.0.0' })
@@ -1203,6 +1218,161 @@ function buildMcpServer(userId: number) {
     }
 
     return { content: [{ type: 'text', text: JSON.stringify({ success: true, deletedId: args.id }) }] }
+  })
+
+  // ─── Reserves / Envelopes ─────────────────────────────────────────────────
+
+  server.tool('list_reserves', 'List internal reserves/envelopes. Reserves reduce available-to-spend but are not bank transactions.', {}, async () => {
+    const db = await getDb()
+    const results = await listReservesForUser(db, userId)
+    return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] }
+  })
+
+  server.tool('get_available_to_spend', 'Get cash availability using calculated balances minus scheduled bills and active reserves.', {}, async () => {
+    const db = await getDb()
+    const summary = await getAvailabilitySummary(db, userId)
+    return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] }
+  })
+
+  server.tool('create_reserve', 'Create an internal reserve/envelope allocation for a cash account. This does not create a transaction.', {
+    accountId: z.number().describe('Cash account ID'),
+    name: z.string().describe('Reserve name, e.g. "116 HOA"'),
+    targetAmount: z.number().positive().describe('Target reserved amount'),
+    currentReservedAmount: z.number().min(0).optional().default(0),
+    contributionAmount: z.number().min(0).optional().default(0),
+    contributionCadence: z.enum(['monthly', 'biweekly', 'weekly', 'custom']).optional().default('monthly'),
+    actualPaymentCadence: z.enum(['monthly', 'quarterly', 'annual', 'custom']).optional().default('monthly'),
+    nextDueDate: z.string().describe('YYYY-MM-DD next payment due date'),
+    category: z.string().nullable().optional(),
+    status: z.enum(['active', 'paused', 'completed']).optional().default('active'),
+    notes: z.string().nullable().optional(),
+  }, async (args) => {
+    const db = await getDb()
+    try {
+      const created = await createReserve(db, userId, args)
+      return { content: [{ type: 'text', text: JSON.stringify(created, null, 2) }] }
+    } catch (error: any) {
+      return { isError: true, content: [{ type: 'text', text: error?.message ?? 'Failed to create reserve.' }] }
+    }
+  })
+
+  server.tool('update_reserve', 'Update a reserve/envelope configuration or status.', {
+    id: z.number().describe('Reserve ID'),
+    accountId: z.number().optional(),
+    name: z.string().optional(),
+    targetAmount: z.number().positive().optional(),
+    contributionAmount: z.number().min(0).optional(),
+    contributionCadence: z.enum(['monthly', 'biweekly', 'weekly', 'custom']).optional(),
+    actualPaymentCadence: z.enum(['monthly', 'quarterly', 'annual', 'custom']).optional(),
+    nextDueDate: z.string().optional(),
+    category: z.string().nullable().optional(),
+    status: z.enum(['active', 'paused', 'completed']).optional(),
+    notes: z.string().nullable().optional(),
+    lastAccruedDate: z.string().nullable().optional(),
+  }, async (args) => {
+    const db = await getDb()
+    const { id, ...fields } = args
+    const existing = await getReserveForUser(db, id, userId)
+    if (!existing) {
+      return { isError: true, content: [{ type: 'text', text: 'Reserve not found or does not belong to you.' }] }
+    }
+
+    if (fields.accountId !== undefined) {
+      const account = await verifyAccountBelongsToUser(db, fields.accountId, userId)
+      if (!account) return { isError: true, content: [{ type: 'text', text: 'Account not found or does not belong to you.' }] }
+    }
+
+    const updates: Record<string, unknown> = {}
+    if (fields.accountId !== undefined) updates.accountId = fields.accountId
+    if (fields.name !== undefined) {
+      if (!fields.name.trim()) return { isError: true, content: [{ type: 'text', text: 'Reserve name cannot be empty.' }] }
+      updates.name = fields.name.trim()
+    }
+    if (fields.targetAmount !== undefined) updates.targetAmount = roundMoney(fields.targetAmount)
+    if (fields.contributionAmount !== undefined) updates.contributionAmount = roundMoney(fields.contributionAmount)
+    if (fields.contributionCadence !== undefined) updates.contributionCadence = fields.contributionCadence
+    if (fields.actualPaymentCadence !== undefined) updates.actualPaymentCadence = fields.actualPaymentCadence
+    if (fields.nextDueDate !== undefined) updates.nextDueDate = fields.nextDueDate
+    if (fields.category !== undefined) updates.category = fields.category?.trim() || null
+    if (fields.status !== undefined) updates.status = fields.status
+    if (fields.notes !== undefined) updates.notes = fields.notes?.trim() || null
+    if (fields.lastAccruedDate !== undefined) updates.lastAccruedDate = fields.lastAccruedDate
+
+    const [updated] = await db.update(reserves).set(updates).where(and(eq(reserves.id, id), eq(reserves.userId, userId))).returning()
+    return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
+  })
+
+  server.tool('delete_reserve', 'Delete a reserve/envelope and its reserve movement history.', {
+    id: z.number().describe('Reserve ID'),
+  }, async (args) => {
+    const db = await getDb()
+    const [deleted] = await db.delete(reserves).where(and(eq(reserves.id, args.id), eq(reserves.userId, userId))).returning({ id: reserves.id })
+    if (!deleted) {
+      return { isError: true, content: [{ type: 'text', text: 'Reserve not found or does not belong to you.' }] }
+    }
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, deletedId: args.id }) }] }
+  })
+
+  server.tool('add_reserve_movement', 'Add a reserve movement. Contributions earmark cash; releases free it or link it to a real payment.', {
+    reserveId: z.number().describe('Reserve ID'),
+    date: z.string().describe('YYYY-MM-DD movement date'),
+    amount: z.number().positive().describe('Positive movement amount'),
+    type: z.enum(['contribution', 'release', 'adjustment']).describe('Movement type'),
+    linkedTransactionId: z.number().nullable().optional().describe('Optional real transaction this reserve movement relates to'),
+    notes: z.string().nullable().optional(),
+  }, async (args) => {
+    const db = await getDb()
+    try {
+      const result = await addReserveMovement(db, userId, args)
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+    } catch (error: any) {
+      return { isError: true, content: [{ type: 'text', text: error?.message ?? 'Failed to add reserve movement.' }] }
+    }
+  })
+
+  server.tool('link_transaction_to_reserve', 'Link a real transaction to a reserve and release the reserved amount so availability is not double-counted.', {
+    reserveId: z.number().describe('Reserve ID'),
+    transactionId: z.number().describe('Existing real transaction ID'),
+    amount: z.number().positive().optional().describe('Release amount; defaults to transaction absolute amount capped by reserve balance'),
+    notes: z.string().nullable().optional(),
+  }, async (args) => {
+    const db = await getDb()
+    const reserve = await getReserveForUser(db, args.reserveId, userId)
+    if (!reserve) return { isError: true, content: [{ type: 'text', text: 'Reserve not found or does not belong to you.' }] }
+
+    const [tx] = await db
+      .select({ id: transactions.id, accountId: transactions.accountId, transactionDate: transactions.transactionDate, amount: transactions.amount })
+      .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .where(and(eq(transactions.id, args.transactionId), eq(accounts.userId, userId), eq(transactions.accountId, reserve.accountId)))
+      .limit(1)
+
+    if (!tx) return { isError: true, content: [{ type: 'text', text: 'Transaction must belong to the same reserved account.' }] }
+
+    const releaseAmount = roundMoney(args.amount ?? Math.min(Math.abs(Number(tx.amount)), Number(reserve.currentReservedAmount)))
+    if (releaseAmount <= 0) return { isError: true, content: [{ type: 'text', text: 'Release amount must be positive.' }] }
+
+    try {
+      const result = await addReserveMovement(db, userId, {
+        reserveId: args.reserveId,
+        date: tx.transactionDate,
+        amount: releaseAmount,
+        type: 'release',
+        linkedTransactionId: args.transactionId,
+        notes: args.notes ?? 'Released reserve for linked payment',
+      })
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+    } catch (error: any) {
+      return { isError: true, content: [{ type: 'text', text: error?.message ?? 'Failed to link transaction.' }] }
+    }
+  })
+
+  server.tool('auto_accrue_reserves', 'Auto-add reserve contributions through a date based on each active reserve cadence.', {
+    throughDate: z.string().optional().describe('YYYY-MM-DD, defaults to today'),
+  }, async (args) => {
+    const db = await getDb()
+    const accrued = await autoAccrueReserves(db, userId, args.throughDate ?? new Date().toISOString().slice(0, 10))
+    return { content: [{ type: 'text', text: JSON.stringify({ accruedCount: accrued.length, movements: accrued }, null, 2) }] }
   })
 
   return server

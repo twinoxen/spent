@@ -36,6 +36,8 @@
         class="mb-6"
       />
 
+      <DashboardAvailableToSpend class="mb-6" />
+
       <!-- Spending Analysis (filtered by date range) -->
       <div class="space-y-6 transition-opacity duration-200" :class="{ 'opacity-50 pointer-events-none': loading }">
 

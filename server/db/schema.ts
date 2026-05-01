@@ -180,3 +180,39 @@ export const bills = pgTable('bills', {
 }, (table) => ({
   userIdIdx: index('bills_user_id_idx').on(table.userId),
 }))
+
+export const reserves = pgTable('reserves', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  accountId: integer('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  targetAmount: doublePrecision('target_amount').notNull(),
+  currentReservedAmount: doublePrecision('current_reserved_amount').notNull().default(0),
+  contributionAmount: doublePrecision('contribution_amount').notNull().default(0),
+  contributionCadence: text('contribution_cadence').notNull().default('monthly'),
+  actualPaymentCadence: text('actual_payment_cadence').notNull().default('monthly'),
+  nextDueDate: text('next_due_date').notNull(),
+  category: text('category'),
+  status: text('status').notNull().default('active'),
+  notes: text('notes'),
+  lastAccruedDate: text('last_accrued_date'),
+  createdAt: timestamp('created_at').default(sql`now()`),
+}, (table) => ({
+  userIdIdx: index('reserves_user_id_idx').on(table.userId),
+  accountIdIdx: index('reserves_account_id_idx').on(table.accountId),
+  statusIdx: index('reserves_status_idx').on(table.status),
+}))
+
+export const reserveMovements = pgTable('reserve_movements', {
+  id: serial('id').primaryKey(),
+  reserveId: integer('reserve_id').notNull().references(() => reserves.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  amount: doublePrecision('amount').notNull(),
+  type: text('type').notNull(),
+  linkedTransactionId: integer('linked_transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').default(sql`now()`),
+}, (table) => ({
+  reserveIdIdx: index('reserve_movements_reserve_id_idx').on(table.reserveId),
+  linkedTransactionIdIdx: index('reserve_movements_linked_transaction_id_idx').on(table.linkedTransactionId),
+}))

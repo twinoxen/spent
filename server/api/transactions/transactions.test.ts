@@ -171,6 +171,103 @@ describe('PATCH /api/transactions/:id', () => {
   })
 })
 
+describe('reserves / envelopes', () => {
+  it('earmarks cash without creating a transaction and releases it when linked to a real payment', async () => {
+    const createReserveRes = await api(user().cookie, '/api/reserves', {
+      method: 'POST',
+      body: JSON.stringify({
+        accountId,
+        name: '116 HOA',
+        targetAmount: 2456.87,
+        currentReservedAmount: 818.96,
+        contributionAmount: 818.96,
+        contributionCadence: 'monthly',
+        actualPaymentCadence: 'quarterly',
+        nextDueDate: '2026-04-01',
+        category: 'HOA',
+      }),
+    })
+    expect(createReserveRes.status).toBe(200)
+    const reserve = await createReserveRes.json()
+    expect(reserve.name).toBe('116 HOA')
+    expect(reserve.currentReservedAmount).toBe(818.96)
+
+    const listAfterReserve = await api(user().cookie, '/api/transactions')
+    const { total: totalAfterReserve } = await listAfterReserve.json()
+    expect(Number(totalAfterReserve)).toBe(0)
+
+    const contributionRes = await api(user().cookie, '/api/reserves/movements', {
+      method: 'POST',
+      body: JSON.stringify({
+        reserveId: reserve.id,
+        date: '2026-02-01',
+        amount: 818.96,
+        type: 'contribution',
+      }),
+    })
+    expect(contributionRes.status).toBe(200)
+    const contribution = await contributionRes.json()
+    expect(contribution.reserve.currentReservedAmount).toBe(1637.92)
+
+    const payment = await createTransaction({
+      transactionDate: '2026-04-01',
+      description: 'HOA Quarterly Check',
+      merchantName: '116 HOA',
+      amount: 2456.87,
+    })
+
+    const linkRes = await api(user().cookie, `/api/reserves/${reserve.id}/link-transaction`, {
+      method: 'POST',
+      body: JSON.stringify({ transactionId: payment.id }),
+    })
+    expect(linkRes.status).toBe(200)
+    const linked = await linkRes.json()
+    expect(linked.movement.type).toBe('release')
+    expect(linked.movement.linkedTransactionId).toBe(payment.id)
+    expect(linked.reserve.currentReservedAmount).toBe(0)
+  })
+
+  it('returns availability summary that subtracts bills and active reserves', async () => {
+    await api(user().cookie, `/api/accounts/${accountId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ currentBalance: 5000, balanceAsOfDate: '2026-01-01' }),
+    })
+
+    await api(user().cookie, '/api/bills', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Insurance',
+        amount: 1200,
+        occurrence: 'annual',
+        dueDate: '2026-12-01',
+        spreadMonthly: true,
+      }),
+    })
+
+    await api(user().cookie, '/api/reserves', {
+      method: 'POST',
+      body: JSON.stringify({
+        accountId,
+        name: 'HOA',
+        targetAmount: 2456.87,
+        currentReservedAmount: 818.96,
+        contributionAmount: 818.96,
+        contributionCadence: 'monthly',
+        actualPaymentCadence: 'quarterly',
+        nextDueDate: '2026-04-01',
+      }),
+    })
+
+    const res = await api(user().cookie, '/api/reserves/summary')
+    expect(res.status).toBe(200)
+    const summary = await res.json()
+    expect(summary.currentBalance).toBe(5000)
+    expect(summary.scheduledUpcomingBills).toBe(100)
+    expect(summary.activeReserves).toBe(818.96)
+    expect(summary.availableToSpend).toBe(4081.04)
+  })
+})
+
 describe('DELETE /api/transactions/:id', () => {
   it('deletes the transaction', async () => {
     const tx = await createTransaction()

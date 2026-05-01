@@ -23,6 +23,8 @@ Spent uses **Drizzle ORM** with **PostgreSQL** as the primary data store. The sc
 
 **Other:**
 - `bills` — recurring payment reminders (amount, due date, occurrence)
+- `reserves` — internal cash earmarks tied to an account; they reduce available-to-spend but do not change bank balance math
+- `reserveMovements` — reserve ledger entries for contributions, releases, and adjustments, optionally linked to a real transaction
 - `apiTokens` — API keys for external integrations
 - `oauthCodes` — OAuth flow state (for third-party auth)
 

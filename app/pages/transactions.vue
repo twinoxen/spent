@@ -461,6 +461,62 @@
               </select>
             </div>
 
+            <!-- Linked reserve -->
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Reserve / Envelope</p>
+                  <p class="text-xs text-gray-400 dark:text-gray-500">
+                    Link this real payment to release reserved cash without creating a fake pending transaction.
+                  </p>
+                </div>
+                <UBadge
+                  v-if="editingTransaction?.reserveLinks?.length"
+                  label="Linked"
+                  color="success"
+                  variant="soft"
+                  size="sm"
+                />
+              </div>
+
+              <div v-if="editingTransaction?.reserveLinks?.length" class="space-y-1">
+                <div
+                  v-for="link in editingTransaction.reserveLinks"
+                  :key="link.movementId"
+                  class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400"
+                >
+                  <span>{{ link.reserveName }}</span>
+                  <span class="font-mono">{{ formatCurrency(link.amount) }}</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                <select
+                  :value="selectedReserveId ?? ''"
+                  class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  @change="selectedReserveId = ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null"
+                >
+                  <option value="">Select reserve to link…</option>
+                  <option
+                    v-for="reserve in matchingActiveReserves"
+                    :key="reserve.id"
+                    :value="reserve.id"
+                  >
+                    {{ reserve.name }} ({{ formatCurrency(reserve.currentReservedAmount) }})
+                  </option>
+                </select>
+                <UButton
+                  label="Link"
+                  color="primary"
+                  variant="outline"
+                  :disabled="!selectedReserveId"
+                  :loading="linkReserveLoading"
+                  @click="linkSelectedReserve"
+                />
+              </div>
+              <p v-if="linkReserveError" class="text-xs text-red-500">{{ linkReserveError }}</p>
+            </div>
+
             <!-- Notes -->
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
@@ -853,6 +909,10 @@ const newCategoryName = ref('')
 const newCategoryParentId = ref('')
 const isSavingNewCategory = ref(false)
 const allMerchants = ref<Array<{ id: number, normalizedName: string, rawNames: string[] }>>([])
+const reserves = ref<any[]>([])
+const selectedReserveId = ref<number | null>(null)
+const linkReserveLoading = ref(false)
+const linkReserveError = ref<string | null>(null)
 
 function defaultEditForm() {
   return {
@@ -1008,6 +1068,14 @@ const editCategoryName = computed(() => {
   return cat?.name ?? 'selected category'
 })
 
+const matchingActiveReserves = computed(() =>
+  reserves.value.filter((reserve: any) =>
+    reserve.status === 'active' &&
+    reserve.accountId === editForm.value.accountId &&
+    reserve.currentReservedAmount > 0,
+  )
+)
+
 
 async function loadTransactions() {
   loading.value = true
@@ -1073,6 +1141,14 @@ async function loadMerchants() {
   }
 }
 
+async function loadReserves() {
+  try {
+    reserves.value = await $fetch('/api/reserves') as any[]
+  } catch (error) {
+    console.error('Failed to load reserves:', error)
+  }
+}
+
 function openEditModal(tx: any) {
   editingTransaction.value = tx
   editError.value = null
@@ -1082,6 +1158,8 @@ function openEditModal(tx: any) {
   showNewCategoryForm.value = false
   newCategoryName.value = ''
   newCategoryParentId.value = ''
+  selectedReserveId.value = null
+  linkReserveError.value = null
 
   editForm.value = {
     transactionDate: tx.transactionDate ?? '',
@@ -1106,6 +1184,27 @@ function openEditModal(tx: any) {
   }
 
   showEditModal.value = true
+}
+
+async function linkSelectedReserve() {
+  if (!editingTransaction.value || !selectedReserveId.value) return
+  linkReserveError.value = null
+  linkReserveLoading.value = true
+  try {
+    await $fetch(`/api/reserves/${selectedReserveId.value}/link-transaction`, {
+      method: 'POST',
+      body: { transactionId: editingTransaction.value.id },
+    })
+    selectedReserveId.value = null
+    await Promise.all([loadTransactions(), loadReserves()])
+    const refreshed = transactions.value.find(tx => tx.id === editingTransaction.value?.id)
+    if (refreshed) editingTransaction.value = refreshed
+    await loadAccounts()
+  } catch (err: any) {
+    linkReserveError.value = err?.data?.message ?? 'Failed to link reserve.'
+  } finally {
+    linkReserveLoading.value = false
+  }
 }
 
 function onMerchantInput() {
@@ -1332,6 +1431,6 @@ function exportCsv() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadCategories(), loadPurchasers(), loadAccounts(), loadTransactions(), loadMerchants()])
+  await Promise.all([loadCategories(), loadPurchasers(), loadAccounts(), loadTransactions(), loadMerchants(), loadReserves()])
 })
 </script>

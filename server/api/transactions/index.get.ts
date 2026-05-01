@@ -1,5 +1,5 @@
 import { getDb } from '../../db'
-import { transactions, merchants, categories, accounts } from '../../db/schema'
+import { transactions, merchants, categories, accounts, reserveMovements, reserves } from '../../db/schema'
 import { eq, desc, asc, and, sql, inArray } from 'drizzle-orm'
 import { parseTransactionFilters, buildTransactionWhereClause } from '../../utils/transactionFilters'
 
@@ -69,11 +69,19 @@ export default defineEventHandler(async (event) => {
         name: accounts.name,
         color: accounts.color,
       },
+      linkedReserve: {
+        id: reserves.id,
+        name: reserves.name,
+        movementId: reserveMovements.id,
+        movementAmount: reserveMovements.amount,
+      },
     })
     .from(transactions)
     .leftJoin(merchants, eq(transactions.merchantId, merchants.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(reserveMovements, eq(reserveMovements.linkedTransactionId, transactions.id))
+    .leftJoin(reserves, eq(reserveMovements.reserveId, reserves.id))
     .where(whereClause)
     .orderBy(...orderClauses)
     .limit(limit)
