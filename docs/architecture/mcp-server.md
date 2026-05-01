@@ -54,6 +54,16 @@ The MCP server at `/api/mcp` exposes these tool categories:
 - `update_bill` — modify amount, due date, frequency
 - `delete_bill` — remove bill
 
+### Reserves / Envelopes
+- `list_reserves` — internal cash allocations by account
+- `create_reserve` — create a reserve without creating a transaction
+- `update_reserve` — modify reserve funding, cadence, due date, or status
+- `delete_reserve` — remove a reserve and its movement history
+- `add_reserve_movement` — manually contribute, release, or adjust a reserve
+- `link_transaction_to_reserve` — link a real payment to a reserve and release earmarked cash
+- `auto_accrue_reserves` — add due reserve contributions by cadence
+- `get_available_to_spend` — cash availability after scheduled bills and active reserves
+
 ### Analytics
 - `get_spending_stats` — totals and category breakdown for date range
 - `get_daily_spending` — per-day spending totals
@@ -103,6 +113,6 @@ For non-browser clients (APIs, cron jobs, external tools), create an API token:
 
 ## Key Files
 
-- `server/api/mcp.ts` — main MCP endpoint implementation
+- `server/api/mcp/index.ts` — main MCP endpoint implementation
 - `server/utils/mcp-tools/` — individual tool implementations (optional)
-- Schema: `apiTokens` table in `server/db/schema.ts`
+- Schema: `apiTokens`, `reserves`, and `reserveMovements` tables in `server/db/schema.ts`

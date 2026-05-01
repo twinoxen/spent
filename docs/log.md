@@ -1,3 +1,7 @@
+## [2026-05-01] update | reserves and availability
+
+- Added database and MCP architecture notes for reserves/envelopes, reserve movements, and available-to-spend calculations.
+
 # Log
 
 ## [2026-04-12] setup | wiki initialized

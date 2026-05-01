@@ -1,5 +1,5 @@
 import { getDb } from '../../db'
-import { transactions, merchants, categories, accounts } from '../../db/schema'
+import { transactions, merchants, categories, accounts, reserveMovements, reserves } from '../../db/schema'
 import { eq, desc, asc, and, sql, inArray } from 'drizzle-orm'
 import { parseTransactionFilters, buildTransactionWhereClause } from '../../utils/transactionFilters'
 
@@ -79,6 +79,29 @@ export default defineEventHandler(async (event) => {
     .limit(limit)
     .offset(offset)
 
+  const transactionIds = results.map(row => row.id)
+  const reserveLinkRows = transactionIds.length === 0
+    ? []
+    : await db
+      .select({
+        transactionId: reserveMovements.linkedTransactionId,
+        reserveId: reserves.id,
+        reserveName: reserves.name,
+        movementId: reserveMovements.id,
+        amount: reserveMovements.amount,
+      })
+      .from(reserveMovements)
+      .innerJoin(reserves, eq(reserveMovements.reserveId, reserves.id))
+      .where(inArray(reserveMovements.linkedTransactionId, transactionIds))
+
+  const reserveLinksByTransaction = new Map<number, typeof reserveLinkRows>()
+  for (const link of reserveLinkRows) {
+    if (link.transactionId === null) continue
+    const existing = reserveLinksByTransaction.get(link.transactionId)
+    if (existing) existing.push(link)
+    else reserveLinksByTransaction.set(link.transactionId, [link])
+  }
+
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
     .from(transactions)
@@ -87,7 +110,10 @@ export default defineEventHandler(async (event) => {
   const total = countResult[0]?.count || 0
 
   return {
-    transactions: results,
+    transactions: results.map(row => ({
+      ...row,
+      reserveLinks: reserveLinksByTransaction.get(row.id) ?? [],
+    })),
     total,
     limit,
     offset,
