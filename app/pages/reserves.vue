@@ -140,7 +140,14 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Account</label>
-                <USelect v-model="form.accountId" :items="accountOptions" value-key="value" label-key="label" placeholder="Select account" />
+                <USelect
+                  :model-value="form.accountId ?? undefined"
+                  :items="accountOptions"
+                  value-key="value"
+                  label-key="label"
+                  placeholder="Select account"
+                  @update:model-value="form.accountId = Number($event)"
+                />
               </div>
             </div>
 

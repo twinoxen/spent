@@ -80,7 +80,7 @@ export function isValidDateString(value: unknown): value is string {
 }
 
 export function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100
 }
 
 function includesValue<T extends readonly string[]>(values: T, value: unknown): value is T[number] {
@@ -228,6 +228,12 @@ export async function createReserve(db: any, userId: number, input: CreateReserv
   if (!account) {
     throw createError({ statusCode: 400, message: 'Account not found' })
   }
+  if (!input.name.trim()) {
+    throw createError({ statusCode: 400, message: 'name must be a non-empty string' })
+  }
+  if (!isValidDateString(input.nextDueDate)) {
+    throw createError({ statusCode: 400, message: 'nextDueDate must be YYYY-MM-DD' })
+  }
 
   const initialAmount = roundMoney(input.currentReservedAmount ?? 0)
   const [created] = await db.insert(reserves).values({
@@ -271,13 +277,19 @@ export async function updateReserve(db: any, userId: number, reserveId: number, 
     if (!account) throw createError({ statusCode: 400, message: 'Account not found' })
     updates.accountId = input.accountId
   }
-  if (input.name !== undefined) updates.name = input.name.trim()
+  if (input.name !== undefined) {
+    if (!input.name.trim()) throw createError({ statusCode: 400, message: 'name must be a non-empty string' })
+    updates.name = input.name.trim()
+  }
   if (input.targetAmount !== undefined) updates.targetAmount = roundMoney(input.targetAmount)
   if (input.currentReservedAmount !== undefined) updates.currentReservedAmount = roundMoney(input.currentReservedAmount)
   if (input.contributionAmount !== undefined) updates.contributionAmount = roundMoney(input.contributionAmount)
   if (input.contributionCadence !== undefined) updates.contributionCadence = input.contributionCadence
   if (input.actualPaymentCadence !== undefined) updates.actualPaymentCadence = input.actualPaymentCadence
-  if (input.nextDueDate !== undefined) updates.nextDueDate = input.nextDueDate
+  if (input.nextDueDate !== undefined) {
+    if (!isValidDateString(input.nextDueDate)) throw createError({ statusCode: 400, message: 'nextDueDate must be YYYY-MM-DD' })
+    updates.nextDueDate = input.nextDueDate
+  }
   if (input.category !== undefined) updates.category = input.category?.trim() || null
   if (input.status !== undefined) updates.status = input.status
   if (input.notes !== undefined) updates.notes = input.notes?.trim() || null

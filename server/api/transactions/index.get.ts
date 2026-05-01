@@ -69,23 +69,38 @@ export default defineEventHandler(async (event) => {
         name: accounts.name,
         color: accounts.color,
       },
-      linkedReserve: {
-        id: reserves.id,
-        name: reserves.name,
-        movementId: reserveMovements.id,
-        movementAmount: reserveMovements.amount,
-      },
     })
     .from(transactions)
     .leftJoin(merchants, eq(transactions.merchantId, merchants.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(accounts, eq(transactions.accountId, accounts.id))
-    .leftJoin(reserveMovements, eq(reserveMovements.linkedTransactionId, transactions.id))
-    .leftJoin(reserves, eq(reserveMovements.reserveId, reserves.id))
     .where(whereClause)
     .orderBy(...orderClauses)
     .limit(limit)
     .offset(offset)
+
+  const transactionIds = results.map(row => row.id)
+  const reserveLinkRows = transactionIds.length === 0
+    ? []
+    : await db
+      .select({
+        transactionId: reserveMovements.linkedTransactionId,
+        reserveId: reserves.id,
+        reserveName: reserves.name,
+        movementId: reserveMovements.id,
+        amount: reserveMovements.amount,
+      })
+      .from(reserveMovements)
+      .innerJoin(reserves, eq(reserveMovements.reserveId, reserves.id))
+      .where(inArray(reserveMovements.linkedTransactionId, transactionIds))
+
+  const reserveLinksByTransaction = new Map<number, typeof reserveLinkRows>()
+  for (const link of reserveLinkRows) {
+    if (link.transactionId === null) continue
+    const existing = reserveLinksByTransaction.get(link.transactionId)
+    if (existing) existing.push(link)
+    else reserveLinksByTransaction.set(link.transactionId, [link])
+  }
 
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
@@ -95,7 +110,10 @@ export default defineEventHandler(async (event) => {
   const total = countResult[0]?.count || 0
 
   return {
-    transactions: results,
+    transactions: results.map(row => ({
+      ...row,
+      reserveLinks: reserveLinksByTransaction.get(row.id) ?? [],
+    })),
     total,
     limit,
     offset,

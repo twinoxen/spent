@@ -1327,7 +1327,7 @@ async function saveEdit() {
     const patch: Record<string, any> = {}
     const orig = editingTransaction.value
 
-    if (editForm.value.accountId !== null && editForm.value.accountId !== orig.accountId)
+    if (editForm.value.accountId !== null && editForm.value.accountId !== (orig.account?.id ?? null))
       patch.accountId = editForm.value.accountId
     if (editForm.value.transactionDate !== orig.transactionDate)
       patch.transactionDate = editForm.value.transactionDate
